@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { Id } from '../../convex/_generated/dataModel'
+import PlayerAvatar from './PlayerAvatar'
+import { IconSun, IconSkull, IconChat, IconEye } from './Icons'
 
 type Player = {
   _id: Id<'players'>
@@ -141,9 +143,14 @@ export default function DayPhase({
               fontSize: '2rem',
               margin: 0,
               textShadow: '0 0 30px var(--accent-glow)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
             }}
           >
-            ☀️ Dawn Breaks
+            <IconSun size={28} color="var(--accent)" />
+            Dawn Breaks
           </h1>
         </div>
 
@@ -250,9 +257,7 @@ export default function DayPhase({
                   border: `1px solid ${p.isMe && p.isAlive ? 'var(--border-accent)' : 'var(--border)'}`,
                 }}
               >
-                <span style={{ fontSize: '1rem' }}>
-                  {p.isAlive ? (p.isHost ? '👑' : '👤') : '💀'}
-                </span>
+                <PlayerAvatar name={p.name} size={28} dead={!p.isAlive} />
                 <span
                   style={{
                     flex: 1,
@@ -288,11 +293,7 @@ export default function DayPhase({
         {deadPlayers.length > 0 && (
           <div
             className="card animate-fade-in"
-            style={{
-              marginBottom: 16,
-              opacity: 0.7,
-              animationDelay: '0.25s',
-            }}
+            style={{ marginBottom: 16, opacity: 0.7, animationDelay: '0.25s' }}
           >
             <p
               className="font-heading"
@@ -300,9 +301,12 @@ export default function DayPhase({
                 margin: '0 0 8px',
                 fontSize: '0.8rem',
                 color: 'var(--text3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
-              ☠️ Eliminated
+              <IconSkull size={13} color="var(--text3)" /> Eliminated
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {deadPlayers.map(p => (
@@ -314,7 +318,7 @@ export default function DayPhase({
           </div>
         )}
 
-        {/* Chat */}
+        {/* Village chat */}
         <div
           className="card animate-fade-in"
           style={{ marginBottom: 16, animationDelay: '0.3s' }}
@@ -325,9 +329,12 @@ export default function DayPhase({
               margin: '0 0 12px',
               fontSize: '0.9rem',
               color: 'var(--text2)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
             }}
           >
-            💬 Village Discussion
+            <IconChat size={14} color="var(--text2)" /> Village Discussion
           </h2>
 
           <div
@@ -427,16 +434,28 @@ export default function DayPhase({
                 textAlign: 'center',
                 margin: 0,
                 padding: '8px 0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
               }}
             >
-              {isGM
-                ? '👁️ Game Masters observe silently.'
-                : '☠️ The dead cannot speak.'}
+              {isGM ? (
+                <>
+                  <IconEye size={13} color="var(--text3)" /> Game Masters
+                  observe silently.
+                </>
+              ) : (
+                <>
+                  <IconSkull size={13} color="var(--text3)" /> The dead cannot
+                  speak.
+                </>
+              )}
             </p>
           )}
         </div>
 
-        {/* Mafia HQ chat — visible to mafia + GM */}
+        {/* Mafia HQ chat */}
         {canSeeMafiaChat && (
           <div
             className="card animate-fade-in"
@@ -558,8 +577,8 @@ export default function DayPhase({
                 }}
               >
                 {isGM
-                  ? '👁️ Observing mafia communications'
-                  : '☠️ Dead mafia cannot send.'}
+                  ? 'Observing mafia communications'
+                  : 'Dead mafia cannot send.'}
               </p>
             )}
           </div>
@@ -573,7 +592,7 @@ export default function DayPhase({
             disabled={advancing}
             onClick={handleVoting}
           >
-            {advancing ? 'Starting...' : '🗳️ Start Voting'}
+            {advancing ? 'Starting...' : 'Start Voting'}
           </button>
         )}
       </div>

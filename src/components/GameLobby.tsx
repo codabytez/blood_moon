@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { Id } from '../../convex/_generated/dataModel'
+import PlayerAvatar from './PlayerAvatar'
+import { IconCrown, IconEye, IconGamepad } from './Icons'
 
 type Player = {
   _id: Id<'players'>
@@ -197,7 +199,18 @@ export default function GameLobby({
                   textAlign: 'center',
                 }}
               >
-                <div style={{ fontSize: '1.4rem', marginBottom: 4 }}>🎮</div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    marginBottom: 4,
+                  }}
+                >
+                  <IconGamepad
+                    size={22}
+                    color={!isSpectating ? 'var(--accent)' : 'var(--text2)'}
+                  />
+                </div>
                 <div
                   style={{
                     fontFamily: 'Cinzel, serif',
@@ -234,7 +247,18 @@ export default function GameLobby({
                   textAlign: 'center',
                 }}
               >
-                <div style={{ fontSize: '1.4rem', marginBottom: 4 }}>👁️</div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    marginBottom: 4,
+                  }}
+                >
+                  <IconEye
+                    size={22}
+                    color={isSpectating ? '#a78bfa' : 'var(--text2)'}
+                  />
+                </div>
                 <div
                   style={{
                     fontFamily: 'Cinzel, serif',
@@ -286,7 +310,7 @@ export default function GameLobby({
             </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {players.map((p, i) => (
               <div
                 key={p._id}
@@ -295,25 +319,23 @@ export default function GameLobby({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
-                  padding: '8px 12px',
+                  padding: '7px 12px',
                   borderRadius: 8,
                   background: p.isMe
                     ? 'rgba(220,38,38,0.05)'
                     : 'var(--surface)',
                   border: `1px solid ${p.isMe ? 'var(--border-accent)' : 'var(--border)'}`,
                   animationDelay: `${i * 0.06}s`,
-                  opacity: p.isSpectating ? 0.65 : 1,
+                  opacity: p.isSpectating ? 0.75 : 1,
                 }}
               >
-                <span style={{ fontSize: '1.1rem' }}>
-                  {p.isSpectating ? '👁️' : p.isHost ? '👑' : '👤'}
-                </span>
+                <PlayerAvatar name={p.name} size={30} />
                 <span style={{ flex: 1, fontWeight: p.isMe ? 600 : 400 }}>
                   {p.name}
                   {p.isMe && (
                     <span
                       style={{
-                        color: 'var(--text2)',
+                        color: 'var(--text3)',
                         fontSize: '0.8rem',
                         marginLeft: 6,
                       }}
@@ -322,8 +344,8 @@ export default function GameLobby({
                     </span>
                   )}
                 </span>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {p.isHost && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {p.isHost && !p.isSpectating && (
                     <span
                       className="badge"
                       style={{
@@ -331,9 +353,12 @@ export default function GameLobby({
                         color: 'var(--accent)',
                         border: '1px solid var(--border-accent)',
                         fontSize: '0.7rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
                       }}
                     >
-                      Host
+                      <IconCrown size={10} color="var(--accent)" /> Host
                     </span>
                   )}
                   {p.isSpectating && (
@@ -344,9 +369,12 @@ export default function GameLobby({
                         color: '#a78bfa',
                         border: '1px solid rgba(124,58,237,0.3)',
                         fontSize: '0.7rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
                       }}
                     >
-                      GM
+                      <IconEye size={10} color="#a78bfa" /> GM
                     </span>
                   )}
                 </div>
@@ -415,7 +443,7 @@ export default function GameLobby({
               disabled={!canStart || starting}
               onClick={handleStart}
             >
-              {starting ? 'Starting...' : '🌙 Start Game'}
+              {starting ? 'Starting...' : 'Start Game'}
             </button>
           ) : (
             <div

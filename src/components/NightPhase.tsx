@@ -3,6 +3,8 @@ import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { Id } from '../../convex/_generated/dataModel'
 import { errMsg } from '../lib/errMsg'
+import PlayerAvatar from './PlayerAvatar'
+import { IconCheck, IconHourglass, IconMoon, IconSkull, IconEye } from './Icons'
 
 type Player = {
   _id: Id<'players'>
@@ -18,13 +20,13 @@ type ActionStatus = {
   isGM: boolean
   mafiaNeeded: boolean
   mafiaSubmitted: boolean
-  mafiaAction: { targetName: string } | null // only set for GM
+  mafiaAction: { targetName: string } | null
   seerNeeded: boolean
   seerSubmitted: boolean
-  seerAction: { targetName: string } | null // only set for GM
+  seerAction: { targetName: string } | null
   doctorNeeded: boolean
   doctorSubmitted: boolean
-  doctorAction: { targetName: string } | null // only set for GM
+  doctorAction: { targetName: string } | null
   allReady: boolean
 } | null
 
@@ -63,7 +65,6 @@ const roleActions: Record<
     color: '#38bdf8',
     warning: 'You may also protect yourself.',
   },
-  // Passive roles — shown as waiting cards, no submit button
   hunter: {
     verb: 'Wait in the shadows',
     icon: '🏹',
@@ -129,7 +130,6 @@ export default function NightPhase({
 
   const canSeeMafiaChat = myRole === 'mafia' || isGM
   const me = players.find(p => p.isMe)
-  // Spectating players are not valid targets for night actions
   const targetablePlayers = players.filter(
     p => p.isAlive && !p.isMe && !p.isSpectating
   )
@@ -227,9 +227,14 @@ export default function NightPhase({
             fontSize: '2rem',
             margin: 0,
             textShadow: '0 0 30px rgba(220,38,38,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
           }}
         >
-          🌙 Night Falls
+          <IconMoon size={28} color="#e8e0f8" />
+          Night Falls
         </h1>
         <p
           style={{
@@ -262,7 +267,7 @@ export default function NightPhase({
       )}
 
       <div style={{ width: '100%', maxWidth: 520 }}>
-        {/* Mafia allies — visible only to mafia */}
+        {/* Mafia allies */}
         {myRole === 'mafia' && myMafiaPartners.length > 0 && (
           <div
             className="card animate-fade-in"
@@ -288,7 +293,7 @@ export default function NightPhase({
           </div>
         )}
 
-        {/* HOST PANEL — shown to any host; GM sees targets, playing host sees submitted/pending only */}
+        {/* HOST PANEL */}
         {isHost && nightActionStatus && (
           <div
             className="card animate-fade-in"
@@ -303,9 +308,19 @@ export default function NightPhase({
                 margin: '0 0 14px',
                 fontSize: '0.95rem',
                 color: isGM ? '#a78bfa' : 'var(--text2)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
-              {isGM ? '👁️ Game Master — Night Status' : '👑 Night Actions'}
+              {isGM ? (
+                <>
+                  <IconEye size={14} color="#a78bfa" />
+                  Game Master — Night Status
+                </>
+              ) : (
+                'Night Actions'
+              )}
             </h2>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -358,13 +373,13 @@ export default function NightPhase({
               {advancing
                 ? 'Processing...'
                 : nightActionStatus.allReady
-                  ? '☀️ Advance to Day'
-                  : '⏳ Waiting for players to act...'}
+                  ? 'Advance to Day'
+                  : 'Waiting for players to act...'}
             </button>
           </div>
         )}
 
-        {/* PLAYER ACTION CARD — for alive players with special roles (not GM) */}
+        {/* PLAYER ACTION CARD */}
         {!isGM && me?.isAlive && hasAction && (
           <div
             className="card card-accent animate-fade-in"
@@ -377,7 +392,15 @@ export default function NightPhase({
           >
             {submitted ? (
               <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    marginBottom: 12,
+                  }}
+                >
+                  <IconCheck size={44} color="#4ade80" />
+                </div>
                 <p
                   className="font-heading"
                   style={{
@@ -461,7 +484,7 @@ export default function NightPhase({
                           display: 'flex',
                           alignItems: 'center',
                           gap: 10,
-                          padding: '10px 14px',
+                          padding: '9px 14px',
                           borderRadius: 8,
                           background:
                             selectedTarget === p._id
@@ -475,7 +498,7 @@ export default function NightPhase({
                           textAlign: 'left',
                         }}
                       >
-                        <span style={{ fontSize: '1rem' }}>👤</span>
+                        <PlayerAvatar name={p.name} size={28} />
                         <span
                           style={{
                             fontWeight: selectedTarget === p._id ? 600 : 400,
@@ -538,9 +561,19 @@ export default function NightPhase({
           >
             <div
               className="animate-float"
-              style={{ fontSize: 60, marginBottom: 16 }}
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                marginBottom: 16,
+              }}
             >
-              {!me?.isAlive ? '💀' : (roleActions[myRole]?.icon ?? '😴')}
+              {!me?.isAlive ? (
+                <IconSkull size={52} color="#6b7280" />
+              ) : (
+                <span style={{ fontSize: 52 }}>
+                  {roleActions[myRole]?.icon ?? '😴'}
+                </span>
+              )}
             </div>
             <h2
               className="font-heading"
@@ -565,7 +598,7 @@ export default function NightPhase({
           </div>
         )}
 
-        {/* Mafia HQ chat — visible to mafia players + GM */}
+        {/* Mafia HQ chat */}
         {canSeeMafiaChat && (
           <div
             className="card animate-fade-in"
@@ -686,8 +719,8 @@ export default function NightPhase({
                 }}
               >
                 {isGM
-                  ? '👁️ Observing mafia communications'
-                  : '☠️ Dead mafia cannot send.'}
+                  ? 'Observing mafia communications'
+                  : 'Dead mafia cannot send.'}
               </p>
             )}
           </div>
@@ -709,7 +742,7 @@ export default function NightPhase({
             Village — {players.filter(p => p.isAlive && !p.isSpectating).length}{' '}
             alive
           </h2>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
             {players
               .filter(p => !p.isSpectating)
               .map(p => (
@@ -719,17 +752,21 @@ export default function NightPhase({
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
-                    padding: '5px 12px',
+                    padding: '4px 10px 4px 5px',
                     borderRadius: 99,
                     background: p.isAlive
                       ? 'var(--surface)'
                       : 'rgba(0,0,0,0.2)',
                     border: `1px solid ${p.isAlive ? 'var(--border)' : 'rgba(100,100,100,0.2)'}`,
-                    opacity: p.isAlive ? 1 : 0.4,
+                    opacity: p.isAlive ? 1 : 0.45,
                     fontSize: '0.85rem',
                   }}
                 >
-                  <span>{p.isAlive ? '🌙' : '☠️'}</span>
+                  {p.isAlive ? (
+                    <IconMoon size={13} color="var(--text3)" />
+                  ) : (
+                    <IconSkull size={13} color="#6b7280" />
+                  )}
                   <span
                     style={{
                       fontWeight: p.isMe ? 600 : 400,
@@ -777,7 +814,11 @@ function StatusRow({
         border: `1px solid ${submitted ? 'rgba(22,163,74,0.3)' : 'var(--border)'}`,
       }}
     >
-      <span style={{ fontSize: '1rem' }}>{submitted ? '✅' : '⏳'}</span>
+      {submitted ? (
+        <IconCheck size={16} color="#4ade80" />
+      ) : (
+        <IconHourglass size={16} color="var(--text3)" />
+      )}
       <span style={{ flex: 1, fontSize: '0.85rem', color: 'var(--text2)' }}>
         {label}
       </span>

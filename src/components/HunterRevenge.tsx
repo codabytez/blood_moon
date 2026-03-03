@@ -3,6 +3,8 @@ import { useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { Id } from '../../convex/_generated/dataModel'
 import { errMsg } from '../lib/errMsg'
+import PlayerAvatar from './PlayerAvatar'
+import { IconMoon, IconSkull } from './Icons'
 
 type Player = {
   _id: Id<'players'>
@@ -47,7 +49,7 @@ export default function HunterRevenge({
   const targetablePlayers = players.filter(
     p => p.isAlive && !p.isSpectating && p._id !== pendingHunterId
   )
-  const announcement = nightAnnouncement || eliminationAnnouncement
+  const announcement = nightAnnouncement ?? eliminationAnnouncement
 
   async function handleFire() {
     if (!selectedTarget) return
@@ -130,7 +132,7 @@ export default function HunterRevenge({
           </div>
         )}
 
-        {/* Hunter targeting UI vs waiting screen */}
+        {/* Hunter targeting UI vs waiting */}
         {isHunter ? (
           <div
             className="card card-accent animate-fade-in"
@@ -170,7 +172,7 @@ export default function HunterRevenge({
                     display: 'flex',
                     alignItems: 'center',
                     gap: 10,
-                    padding: '10px 14px',
+                    padding: '9px 14px',
                     borderRadius: 8,
                     background:
                       selectedTarget === p._id
@@ -184,7 +186,7 @@ export default function HunterRevenge({
                     textAlign: 'left',
                   }}
                 >
-                  <span>👤</span>
+                  <PlayerAvatar name={p.name} size={28} />
                   <span
                     style={{ fontWeight: selectedTarget === p._id ? 600 : 400 }}
                   >
@@ -274,7 +276,7 @@ export default function HunterRevenge({
             Village — {players.filter(p => p.isAlive && !p.isSpectating).length}{' '}
             alive
           </h2>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
             {players
               .filter(p => !p.isSpectating)
               .map(p => (
@@ -284,7 +286,7 @@ export default function HunterRevenge({
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
-                    padding: '5px 12px',
+                    padding: '4px 10px 4px 5px',
                     borderRadius: 99,
                     background: p.isAlive
                       ? 'var(--surface)'
@@ -300,9 +302,13 @@ export default function HunterRevenge({
                     fontSize: '0.85rem',
                   }}
                 >
-                  <span>
-                    {p._id === pendingHunterId ? '🏹' : p.isAlive ? '🌙' : '☠️'}
-                  </span>
+                  {p._id === pendingHunterId ? (
+                    <span style={{ fontSize: 13 }}>🏹</span>
+                  ) : p.isAlive ? (
+                    <IconMoon size={13} color="var(--text3)" />
+                  ) : (
+                    <IconSkull size={13} color="#6b7280" />
+                  )}
                   <span
                     style={{
                       fontWeight: p.isMe ? 600 : 400,

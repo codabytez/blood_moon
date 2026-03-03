@@ -381,3 +381,31 @@ body {
 .text-dim {
   color: var(--text3);
 }
+
+/* ─── Design polish ──────────────────────────────────────── */
+
+/* Cards — slightly tighter padding on small screens */
+@media (max-width: 480px) {
+  .card {
+    padding: 18px 16px;
+    border-radius: 12px;
+  }
+}
+
+/* Buttons — active press effect */
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+/* Input — background matches surface more closely */
+.input {
+  background: rgba(0, 0, 0, 0.25);
+}
+html[data-theme='day'] .input {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+/* Player-row hover state (for target / vote buttons) */
+button:not(.btn):hover:not(:disabled) {
+  background: var(--surface-hover) !important;
+}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 
 function useTheme(): 'day' | 'night' {
   const [theme, setTheme] = useState<'day' | 'night'>(
@@ -74,7 +75,7 @@ function NightBackground() {
               background: '#fff',
               '--delay': star.delay,
               '--duration': star.duration,
-            } as React.CSSProperties
+            } as CSSProperties
           }
         />
       ))}

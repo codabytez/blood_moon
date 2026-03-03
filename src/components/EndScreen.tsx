@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Id } from '../../convex/_generated/dataModel'
+import PlayerAvatar from './PlayerAvatar'
 
 type Player = {
   _id: Id<'players'>
@@ -332,13 +333,14 @@ function RoleRow({
         display: 'flex',
         alignItems: 'center',
         gap: 10,
-        padding: '8px 12px',
+        padding: '7px 12px',
         borderRadius: 8,
         background: 'var(--surface)',
         border: `1px solid ${player.isMe ? 'var(--border-accent)' : 'var(--border)'}`,
-        opacity: player.isAlive ? 1 : 0.65,
+        opacity: player.isAlive ? 1 : 0.6,
       }}
     >
+      <PlayerAvatar name={player.name} size={26} dead={!player.isAlive} />
       <span style={{ flex: 1, fontWeight: player.isMe ? 700 : 400 }}>
         {player.name}
         {player.isMe && (

@@ -3,6 +3,8 @@ import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { Id } from '../../convex/_generated/dataModel'
 import { errMsg } from '../lib/errMsg'
+import PlayerAvatar from './PlayerAvatar'
+import { IconCrosshair, IconSkull, IconEye, IconWarning } from './Icons'
 
 type Player = {
   _id: Id<'players'>
@@ -43,7 +45,6 @@ export default function VotingPhase({
   const voteData = useQuery(api.votes.list, { gameId, sessionId })
 
   const me = players.find(p => p.isMe)
-  // Exclude spectating GM from alive count and vote targets
   const alivePlayers = players.filter(p => p.isAlive && !p.isSpectating)
   const myVote = voteData?.myVote
   const tally = voteData?.tally ?? []
@@ -62,7 +63,6 @@ export default function VotingPhase({
   }
 
   function requestEliminate() {
-    // If some players haven't voted yet, ask host to confirm first
     if (totalVotes < alivePlayers.length) {
       setShowConfirm(true)
     } else {
@@ -132,7 +132,7 @@ export default function VotingPhase({
           </p>
         </div>
 
-        {/* Voting tally banner */}
+        {/* Vote tally */}
         <div
           className="card animate-fade-in"
           style={{ marginBottom: 16, animationDelay: '0.05s' }}
@@ -151,12 +151,7 @@ export default function VotingPhase({
             >
               Vote Tally
             </p>
-            <span
-              style={{
-                fontSize: '0.8rem',
-                color: 'var(--text3)',
-              }}
-            >
+            <span style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>
               {totalVotes} / {alivePlayers.length} voted
             </span>
           </div>
@@ -213,7 +208,7 @@ export default function VotingPhase({
           )}
         </div>
 
-        {/* Vote targets — for alive non-spectating players (including playing host) */}
+        {/* Vote targets */}
         {me?.isAlive && !isGM && (
           <div
             className="card animate-fade-in"
@@ -223,7 +218,7 @@ export default function VotingPhase({
               className="font-heading"
               style={{ margin: '0 0 14px', fontSize: '0.95rem' }}
             >
-              {myVote ? '✅ Your vote is cast' : 'Cast your vote'}
+              {myVote ? 'Your vote is cast' : 'Cast your vote'}
             </h2>
 
             {myVote && (
@@ -258,7 +253,7 @@ export default function VotingPhase({
                       display: 'flex',
                       alignItems: 'center',
                       gap: 10,
-                      padding: '10px 14px',
+                      padding: '9px 14px',
                       borderRadius: 8,
                       background:
                         myVote === p._id
@@ -273,9 +268,11 @@ export default function VotingPhase({
                       opacity: submitting ? 0.7 : 1,
                     }}
                   >
-                    <span style={{ fontSize: '1rem' }}>
-                      {myVote === p._id ? '🎯' : '👤'}
-                    </span>
+                    {myVote === p._id ? (
+                      <IconCrosshair size={20} color="#f87171" />
+                    ) : (
+                      <PlayerAvatar name={p.name} size={28} />
+                    )}
                     <span style={{ fontWeight: myVote === p._id ? 600 : 400 }}>
                       {p.name}
                     </span>
@@ -310,7 +307,7 @@ export default function VotingPhase({
           </div>
         )}
 
-        {/* GM observer message */}
+        {/* GM view */}
         {isGM && (
           <div
             className="card animate-fade-in"
@@ -325,9 +322,16 @@ export default function VotingPhase({
           >
             <p
               className="font-heading"
-              style={{ margin: '0 0 4px', color: '#a78bfa' }}
+              style={{
+                margin: '0 0 4px',
+                color: '#a78bfa',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+              }}
             >
-              👁️ Game Master View
+              <IconEye size={14} color="#a78bfa" /> Game Master View
             </p>
             <p
               style={{ color: 'var(--text3)', margin: 0, fontSize: '0.85rem' }}
@@ -347,7 +351,15 @@ export default function VotingPhase({
               animationDelay: '0.1s',
             }}
           >
-            <div style={{ fontSize: 48, marginBottom: 12 }}>💀</div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                marginBottom: 12,
+              }}
+            >
+              <IconSkull size={44} color="#6b7280" />
+            </div>
             <p className="font-heading" style={{ margin: '0 0 6px' }}>
               You are eliminated
             </p>
@@ -359,7 +371,7 @@ export default function VotingPhase({
           </div>
         )}
 
-        {/* Player list for all */}
+        {/* Player list */}
         <div
           className="card animate-fade-in"
           style={{ marginBottom: 16, animationDelay: '0.15s' }}
@@ -382,7 +394,7 @@ export default function VotingPhase({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,
-                  padding: '4px 10px',
+                  padding: '4px 10px 4px 5px',
                   borderRadius: 99,
                   background: p.isAlive ? 'var(--surface)' : 'rgba(0,0,0,0.15)',
                   border: `1px solid ${p.isAlive ? 'var(--border)' : 'transparent'}`,
@@ -390,7 +402,11 @@ export default function VotingPhase({
                   fontSize: '0.82rem',
                 }}
               >
-                {p.isAlive ? '👤' : '☠️'}
+                {p.isAlive ? (
+                  <PlayerAvatar name={p.name} size={20} />
+                ) : (
+                  <IconSkull size={14} color="#6b7280" />
+                )}
                 <span
                   style={{
                     color: p.isAlive ? 'var(--text)' : '#6b7280',
@@ -413,7 +429,7 @@ export default function VotingPhase({
           </div>
         </div>
 
-        {/* Host process button + confirm modal */}
+        {/* Host process button */}
         {isHost && (
           <>
             {showConfirm && (
@@ -431,9 +447,13 @@ export default function VotingPhase({
                     margin: '0 0 6px',
                     fontSize: '0.9rem',
                     color: '#f87171',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
                   }}
                 >
-                  ⚠️ Not everyone has voted
+                  <IconWarning size={14} color="#f87171" /> Not everyone has
+                  voted
                 </p>
                 <p
                   style={{
@@ -473,7 +493,7 @@ export default function VotingPhase({
                 disabled={processing}
                 onClick={requestEliminate}
               >
-                {processing ? 'Processing...' : '⚰️ Tally Votes & Eliminate'}
+                {processing ? 'Processing...' : 'Tally Votes & Eliminate'}
               </button>
             )}
           </>

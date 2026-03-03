@@ -3,6 +3,7 @@ import { useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { GameState } from '../App'
 import { errMsg } from '../lib/errMsg'
+import { IconMoon, IconCrown, IconLogIn } from './Icons'
 
 type Props = {
   sessionId: string
@@ -11,6 +12,18 @@ type Props = {
 }
 
 type Modal = 'none' | 'host' | 'join'
+
+const ROLES = [
+  { label: 'Mafia', cls: 'badge-mafia' },
+  { label: 'Villager', cls: 'badge-villager' },
+  { label: 'Seer', cls: 'badge-seer' },
+  { label: 'Doctor', cls: 'badge-doctor' },
+  { label: 'Hunter', cls: 'badge-hunter' },
+  { label: 'Prince', cls: 'badge-prince' },
+  { label: 'Lycan', cls: 'badge-lycan' },
+  { label: 'Mason', cls: 'badge-mason' },
+  { label: 'Apprentice Seer', cls: 'badge-apprenticeSeer' },
+]
 
 export default function LandingPage({
   sessionId,
@@ -67,6 +80,8 @@ export default function LandingPage({
     }
   }
 
+  const isHost = modal === 'host'
+
   return (
     <div
       style={{
@@ -77,157 +92,266 @@ export default function LandingPage({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px',
+        padding: '32px 24px 48px',
       }}
     >
-      {/* Hero */}
+      {/* ── Hero ───────────────────────────────────────── */}
       <div
         className="animate-fade-in"
         style={{ textAlign: 'center', marginBottom: 56 }}
       >
+        {/* Moon with layered pulse rings */}
         <div
-          className="animate-float"
-          style={{ fontSize: 72, marginBottom: 16 }}
+          style={{
+            position: 'relative',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 28,
+          }}
         >
-          🌕
+          {/* Outer slow ring */}
+          <div
+            className="animate-pulse-ring"
+            style={{
+              position: 'absolute',
+              width: 120,
+              height: 120,
+              borderRadius: '50%',
+              background: 'var(--accent-glow)',
+              animationDuration: '2.8s',
+            }}
+          />
+          {/* Inner faster ring */}
+          <div
+            className="animate-pulse-ring"
+            style={{
+              position: 'absolute',
+              width: 96,
+              height: 96,
+              borderRadius: '50%',
+              background: 'var(--accent-glow)',
+              animationDuration: '2.8s',
+              animationDelay: '0.9s',
+            }}
+          />
+          <div className="animate-float">
+            <IconMoon
+              size={72}
+              color="var(--moon)"
+              style={{ filter: 'drop-shadow(0 0 28px var(--moon))' }}
+            />
+          </div>
         </div>
+
         <h1
           className="font-title"
           style={{
-            fontSize: 'clamp(2.5rem, 8vw, 5rem)',
+            fontSize: 'clamp(2.8rem, 9vw, 5.5rem)',
             color: 'var(--moon)',
             textShadow:
-              '0 0 40px rgba(220, 38, 38, 0.6), 0 2px 12px rgba(0,0,0,0.8)',
-            margin: 0,
-            letterSpacing: '0.05em',
-            lineHeight: 1.1,
+              '0 0 60px rgba(220,38,38,0.7), 0 0 120px rgba(220,38,38,0.25), 0 2px 16px rgba(0,0,0,0.9)',
+            margin: '0 0 14px',
+            letterSpacing: '0.06em',
+            lineHeight: 1.05,
           }}
         >
           Blood Moon
         </h1>
+
         <p
           className="font-heading"
           style={{
-            color: 'var(--text2)',
-            fontSize: '1.05rem',
-            marginTop: 12,
-            letterSpacing: '0.2em',
+            color: 'var(--accent)',
+            fontSize: '0.85rem',
+            margin: '0 0 8px',
+            letterSpacing: '0.28em',
             textTransform: 'uppercase',
           }}
         >
-          The night is watching
+          A Social Deduction Game
+        </p>
+
+        <p
+          style={{
+            color: 'var(--text3)',
+            fontSize: '0.78rem',
+            margin: 0,
+            letterSpacing: '0.12em',
+          }}
+        >
+          4 – 14 players &nbsp;·&nbsp; deception &nbsp;·&nbsp; strategy
         </p>
       </div>
 
-      {/* CTA Cards */}
+      {/* ── CTA Cards ──────────────────────────────────── */}
       <div
         className="animate-fade-in"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: 20,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 16,
           width: '100%',
-          maxWidth: 520,
-          animationDelay: '0.15s',
+          maxWidth: 480,
+          animationDelay: '0.2s',
         }}
       >
+        {/* Host */}
         <button
-          className="card card-accent"
+          className="card card-accent animate-glow-pulse"
           onClick={() => setModal('host')}
           style={{
             cursor: 'pointer',
-            textAlign: 'center',
-            padding: '32px 24px',
-            transition: 'transform 0.2s, box-shadow 0.2s',
             border: 'none',
             color: 'var(--text)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 14,
+            padding: '32px 20px',
+            transition: 'transform 0.22s ease',
           }}
-          onMouseEnter={e => {
-            ;(e.currentTarget as HTMLElement).style.transform =
-              'translateY(-4px)'
-          }}
-          onMouseLeave={e => {
-            ;(e.currentTarget as HTMLElement).style.transform = 'translateY(0)'
-          }}
+          onMouseEnter={e =>
+            (e.currentTarget.style.transform = 'translateY(-5px)')
+          }
+          onMouseLeave={e => (e.currentTarget.style.transform = '')}
         >
-          <div style={{ fontSize: 40, marginBottom: 12 }}>👑</div>
           <div
-            className="font-heading"
-            style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: 6 }}
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: '50%',
+              background: 'rgba(220,38,38,0.14)',
+              border: '1.5px solid rgba(220,38,38,0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
           >
-            Host a Game
+            <IconCrown size={28} color="var(--accent)" />
           </div>
-          <div style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>
-            Create a room & invite friends
+          <div style={{ textAlign: 'center' }}>
+            <div
+              className="font-heading"
+              style={{
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                marginBottom: 5,
+                color: 'var(--text)',
+              }}
+            >
+              Host a Game
+            </div>
+            <div style={{ color: 'var(--text2)', fontSize: '0.8rem' }}>
+              Create a room &amp; invite friends
+            </div>
           </div>
         </button>
 
+        {/* Join */}
         <button
           className="card"
           onClick={() => setModal('join')}
           style={{
             cursor: 'pointer',
-            textAlign: 'center',
-            padding: '32px 24px',
-            transition: 'transform 0.2s, box-shadow 0.2s',
             border: 'none',
             color: 'var(--text)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 14,
+            padding: '32px 20px',
+            transition: 'transform 0.22s ease',
           }}
-          onMouseEnter={e => {
-            ;(e.currentTarget as HTMLElement).style.transform =
-              'translateY(-4px)'
-          }}
-          onMouseLeave={e => {
-            ;(e.currentTarget as HTMLElement).style.transform = 'translateY(0)'
-          }}
+          onMouseEnter={e =>
+            (e.currentTarget.style.transform = 'translateY(-5px)')
+          }
+          onMouseLeave={e => (e.currentTarget.style.transform = '')}
         >
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🚪</div>
           <div
-            className="font-heading"
-            style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: 6 }}
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: '50%',
+              background: 'rgba(124,58,237,0.12)',
+              border: '1.5px solid rgba(124,58,237,0.28)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
           >
-            Join a Game
+            <IconLogIn size={28} color="var(--accent2)" />
           </div>
-          <div style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>
-            Enter the code to join
+          <div style={{ textAlign: 'center' }}>
+            <div
+              className="font-heading"
+              style={{
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                marginBottom: 5,
+                color: 'var(--text)',
+              }}
+            >
+              Join a Game
+            </div>
+            <div style={{ color: 'var(--text2)', fontSize: '0.8rem' }}>
+              Enter a code to join
+            </div>
           </div>
         </button>
       </div>
 
-      {/* Role legend */}
+      {/* ── Role legend ────────────────────────────────── */}
       <div
         className="animate-fade-in"
         style={{
-          display: 'flex',
-          gap: 10,
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          marginTop: 48,
-          animationDelay: '0.3s',
+          marginTop: 52,
+          width: '100%',
+          maxWidth: 480,
+          animationDelay: '0.35s',
         }}
       >
-        {[
-          { emoji: '😈', label: 'Mafia', cls: 'badge-mafia' },
-          { emoji: '🏡', label: 'Villager', cls: 'badge-villager' },
-          { emoji: '🔮', label: 'Seer', cls: 'badge-seer' },
-          { emoji: '💉', label: 'Doctor', cls: 'badge-doctor' },
-          { emoji: '🏹', label: 'Hunter', cls: 'badge-hunter' },
-          { emoji: '👑', label: 'Prince', cls: 'badge-prince' },
-          { emoji: '🐺', label: 'Lycan', cls: 'badge-lycan' },
-          { emoji: '🧱', label: 'Mason', cls: 'badge-mason' },
-          {
-            emoji: '🔭',
-            label: 'Apprentice Seer',
-            cls: 'badge-apprenticeSeer',
-          },
-        ].map(r => (
-          <span key={r.label} className={`badge ${r.cls}`}>
-            {r.emoji} {r.label}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <span
+            className="font-heading"
+            style={{
+              color: 'var(--text3)',
+              fontSize: '0.65rem',
+              letterSpacing: '0.22em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Roles
           </span>
-        ))}
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+          }}
+        >
+          {ROLES.map(r => (
+            <span key={r.label} className={`badge ${r.cls}`}>
+              {r.label}
+            </span>
+          ))}
+        </div>
       </div>
 
-      {/* How to Play link */}
+      {/* ── How to Play ────────────────────────────────── */}
       <button
         className="animate-fade-in"
         onClick={onShowRules}
@@ -235,26 +359,39 @@ export default function LandingPage({
           background: 'none',
           border: 'none',
           color: 'var(--text3)',
-          fontSize: '0.85rem',
+          fontSize: '0.8rem',
           cursor: 'pointer',
-          marginTop: 20,
-          letterSpacing: '0.05em',
-          textDecoration: 'underline',
-          textUnderlineOffset: 3,
-          animationDelay: '0.4s',
+          marginTop: 28,
+          letterSpacing: '0.08em',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 5,
+          animationDelay: '0.5s',
+          transition: 'color 0.2s',
         }}
+        onMouseEnter={e => (e.currentTarget.style.color = 'var(--text2)')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text3)')}
       >
-        How to Play
+        <span
+          style={{
+            fontFamily: 'Cinzel, serif',
+            textDecoration: 'underline',
+            textUnderlineOffset: 3,
+          }}
+        >
+          How to Play
+        </span>
+        <span style={{ opacity: 0.6 }}>›</span>
       </button>
 
-      {/* Modal */}
+      {/* ── Modal ──────────────────────────────────────── */}
       {modal !== 'none' && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.7)',
-            backdropFilter: 'blur(4px)',
+            background: 'rgba(0,0,0,0.72)',
+            backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -269,38 +406,73 @@ export default function LandingPage({
             className="card card-accent animate-fade-in-scale"
             style={{ width: '100%', maxWidth: 400 }}
           >
-            <h2
-              className="font-heading"
-              style={{ margin: '0 0 20px', fontSize: '1.3rem' }}
+            {/* Modal header */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                marginBottom: 24,
+              }}
             >
-              {modal === 'host' ? '👑 Host a Game' : '🚪 Join a Game'}
-            </h2>
-
-            <form onSubmit={modal === 'host' ? handleHost : handleJoin}>
               <div
-                style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  background: isHost
+                    ? 'rgba(220,38,38,0.14)'
+                    : 'rgba(124,58,237,0.12)',
+                  border: `1.5px solid ${isHost ? 'rgba(220,38,38,0.35)' : 'rgba(124,58,237,0.28)'}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
               >
-                {modal === 'join' && (
+                {isHost ? (
+                  <IconCrown size={20} color="var(--accent)" />
+                ) : (
+                  <IconLogIn size={20} color="var(--accent2)" />
+                )}
+              </div>
+              <h2
+                className="font-heading"
+                style={{ margin: 0, fontSize: '1.2rem' }}
+              >
+                {isHost ? 'Host a Game' : 'Join a Game'}
+              </h2>
+              <button
+                onClick={reset}
+                style={{
+                  marginLeft: 'auto',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text3)',
+                  cursor: 'pointer',
+                  fontSize: '1.3rem',
+                  lineHeight: 1,
+                  padding: '2px 6px',
+                  borderRadius: 6,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={isHost ? handleHost : handleJoin}>
+              <div
+                style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+              >
+                {!isHost && (
                   <div>
-                    <label
-                      style={{
-                        display: 'block',
-                        fontSize: '0.8rem',
-                        color: 'var(--text2)',
-                        marginBottom: 6,
-                        fontFamily: 'Cinzel, serif',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                      }}
-                    >
-                      Game Code
-                    </label>
+                    <label style={labelStyle}>Game Code</label>
                     <input
                       className="input"
                       style={{
                         textTransform: 'uppercase',
-                        letterSpacing: '0.25em',
-                        fontSize: '1.2rem',
+                        letterSpacing: '0.3em',
+                        fontSize: '1.3rem',
                         fontFamily: 'Cinzel, serif',
                         textAlign: 'center',
                       }}
@@ -312,38 +484,25 @@ export default function LandingPage({
                     />
                   </div>
                 )}
+
                 <div>
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: '0.8rem',
-                      color: 'var(--text2)',
-                      marginBottom: 6,
-                      fontFamily: 'Cinzel, serif',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.08em',
-                    }}
-                  >
-                    Your Name
-                  </label>
+                  <label style={labelStyle}>Your Name</label>
                   <input
                     className="input"
-                    placeholder={
-                      modal === 'host' ? 'Host name...' : 'Your name...'
-                    }
+                    placeholder={isHost ? 'Host name...' : 'Your name...'}
                     value={name}
                     onChange={e => setName(e.target.value)}
                     maxLength={24}
-                    autoFocus={modal === 'host'}
+                    autoFocus={isHost}
                   />
                 </div>
 
                 {error && (
                   <div
                     style={{
-                      padding: '8px 12px',
-                      background: 'rgba(220,38,38,0.12)',
-                      border: '1px solid rgba(220,38,38,0.3)',
+                      padding: '9px 13px',
+                      background: 'rgba(220,38,38,0.1)',
+                      border: '1px solid rgba(220,38,38,0.28)',
                       borderRadius: 8,
                       color: '#f87171',
                       fontSize: '0.85rem',
@@ -353,7 +512,7 @@ export default function LandingPage({
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
                   <button
                     type="button"
                     className="btn btn-ghost"
@@ -366,17 +525,11 @@ export default function LandingPage({
                     type="submit"
                     className="btn btn-primary"
                     disabled={
-                      loading ||
-                      !name.trim() ||
-                      (modal === 'join' && code.length < 6)
+                      loading || !name.trim() || (!isHost && code.length < 6)
                     }
                     style={{ flex: 2 }}
                   >
-                    {loading
-                      ? '...'
-                      : modal === 'host'
-                        ? 'Create Game'
-                        : 'Join Game'}
+                    {loading ? '...' : isHost ? 'Create Game' : 'Join Game'}
                   </button>
                 </div>
               </div>
@@ -386,4 +539,14 @@ export default function LandingPage({
       )}
     </div>
   )
+}
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '0.75rem',
+  color: 'var(--text2)',
+  marginBottom: 7,
+  fontFamily: 'Cinzel, serif',
+  textTransform: 'uppercase',
+  letterSpacing: '0.1em',
 }

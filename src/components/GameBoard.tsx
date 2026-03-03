@@ -41,18 +41,19 @@ export default function GameBoard({ gameId, sessionId, onLeave }: Props) {
     else if (game.phase === 'ended') applyTheme('night')
   }, [game])
 
-  // Detect lobby→night transition using the React-recommended previous-value pattern:
-  // calling setState conditionally during render causes an immediate synchronous re-render.
-  if (game?.phase !== prevPhase) {
+  // Detect lobby→night transition using the React previous-value pattern.
+  // Normalize undefined→null so the comparison is stable while game is loading.
+  const currentPhase = game?.phase ?? null
+  if (currentPhase !== prevPhase) {
     if (
       prevPhase === 'lobby' &&
-      game?.phase === 'night' &&
+      currentPhase === 'night' &&
       me?.role &&
       !showRoleReveal
     ) {
       setShowRoleReveal(true)
     }
-    setPrevPhase(game?.phase ?? null)
+    setPrevPhase(currentPhase)
   }
 
   if (game === undefined || players === undefined || me === undefined) {
