@@ -1,1 +1,383 @@
 @import 'tailwindcss';
+
+/* ─── Base ──────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: 'Inter', system-ui, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Night Theme (default) ────────────────────────────── */
+html,
+html[data-theme='night'] {
+  --bg: #060614;
+  --bg2: #0a0a20;
+  --surface: rgba(15, 12, 40, 0.82);
+  --surface-solid: #0f0c28;
+  --surface-hover: rgba(30, 25, 70, 0.9);
+  --text: #e8e0f8;
+  --text2: #9b8cc0;
+  --text3: #5c4f8a;
+  --accent: #dc2626;
+  --accent2: #7c3aed;
+  --accent-glow: rgba(220, 38, 38, 0.35);
+  --border: rgba(139, 92, 246, 0.18);
+  --border-accent: rgba(220, 38, 38, 0.4);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --glow: 0 0 24px rgba(220, 38, 38, 0.35);
+  --moon: #f5e6c8;
+}
+
+/* ─── Day Theme ─────────────────────────────────────────── */
+html[data-theme='day'] {
+  --bg: #fef3c7;
+  --bg2: #fffbf0;
+  --surface: rgba(255, 250, 230, 0.88);
+  --surface-solid: #fff8e7;
+  --surface-hover: rgba(254, 243, 199, 0.95);
+  --text: #1c1008;
+  --text2: #78450f;
+  --text3: #b86c1e;
+  --accent: #d97706;
+  --accent2: #0ea5e9;
+  --accent-glow: rgba(217, 119, 6, 0.3);
+  --border: rgba(217, 119, 6, 0.2);
+  --border-accent: rgba(217, 119, 6, 0.5);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --glow: 0 0 24px rgba(217, 119, 6, 0.3);
+  --moon: #f59e0b;
+}
+
+/* ─── Global ────────────────────────────────────────────── */
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  transition:
+    background-color 1s ease,
+    color 0.5s ease;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg2);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+/* ─── Typography ────────────────────────────────────────── */
+.font-title {
+  font-family: 'Cinzel Decorative', serif;
+}
+.font-heading {
+  font-family: 'Cinzel', serif;
+}
+
+/* ─── Cards / Glass ─────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+  transition:
+    background 0.5s,
+    border-color 0.5s,
+    box-shadow 0.5s;
+}
+.card-accent {
+  border-color: var(--border-accent);
+  box-shadow: var(--glow);
+}
+
+/* ─── Buttons ────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.04em;
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 14px var(--accent-glow);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px var(--accent-glow);
+}
+.btn-ghost {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-accent);
+  transform: translateY(-1px);
+}
+.btn-danger {
+  background: #dc2626;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
+}
+.btn-danger:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+}
+.btn-lg {
+  padding: 14px 32px;
+  font-size: 1rem;
+}
+
+/* ─── Inputs ─────────────────────────────────────────────── */
+.input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.input::placeholder {
+  color: var(--text3);
+}
+
+/* ─── Badge ──────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'Cinzel', serif;
+}
+.badge-mafia {
+  background: rgba(220, 38, 38, 0.18);
+  color: #f87171;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+.badge-villager {
+  background: rgba(22, 163, 74, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(22, 163, 74, 0.25);
+}
+.badge-seer {
+  background: rgba(124, 58, 237, 0.18);
+  color: #a78bfa;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+}
+.badge-doctor {
+  background: rgba(2, 132, 199, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(2, 132, 199, 0.25);
+}
+.badge-dead {
+  background: rgba(100, 100, 100, 0.15);
+  color: #9ca3af;
+  border: 1px solid rgba(100, 100, 100, 0.2);
+}
+.badge-hunter {
+  background: rgba(251, 146, 60, 0.15);
+  color: #fb923c;
+  border: 1px solid rgba(251, 146, 60, 0.3);
+}
+.badge-prince {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+.badge-lycan {
+  background: rgba(163, 230, 53, 0.15);
+  color: #a3e635;
+  border: 1px solid rgba(163, 230, 53, 0.3);
+}
+.badge-mason {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+.badge-apprenticeSeer {
+  background: rgba(192, 132, 252, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(192, 132, 252, 0.3);
+}
+
+/* ─── Animations ─────────────────────────────────────────── */
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.2;
+    transform: scale(0.7);
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+@keyframes drift {
+  0% {
+    transform: translateX(-120px);
+  }
+  100% {
+    transform: translateX(calc(100vw + 120px));
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.8;
+  }
+  70% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+  50% {
+    box-shadow:
+      0 0 32px var(--accent-glow),
+      0 0 60px var(--accent-glow);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease both;
+}
+.animate-fade-in-scale {
+  animation: fade-in-scale 0.4s ease both;
+}
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+.animate-twinkle {
+  animation: twinkle var(--duration, 3s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+.animate-pulse-ring {
+  animation: pulse-ring 2s ease-out infinite;
+}
+.animate-glow-pulse {
+  animation: glow-pulse 2.5s ease-in-out infinite;
+}
+
+/* ─── Role Card Flip ─────────────────────────────────────── */
+.flip-container {
+  perspective: 1200px;
+}
+.flip-card {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.85s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  height: 100%;
+}
+.flip-card.flipped {
+  transform: rotateY(180deg);
+}
+.flip-front,
+.flip-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 18px;
+}
+.flip-back {
+  transform: rotateY(180deg);
+}
+
+/* ─── Misc ───────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 16px 0;
+}
+.text-accent {
+  color: var(--accent);
+}
+.text-muted {
+  color: var(--text2);
+}
+.text-dim {
+  color: var(--text3);
+}
