@@ -14,6 +14,9 @@ type Player = {
   seerResult?: string
   isMe?: boolean
   isSpectating?: boolean
+  silenced?: boolean
+  piResult?: string
+  ftResult?: string
 }
 
 type Props = {
@@ -105,6 +108,7 @@ export default function DayPhase({
   }
 
   const seerResult = me?.seerResult
+  const isSilenced = me?.silenced === true
 
   return (
     <div
@@ -191,6 +195,36 @@ export default function DayPhase({
           </div>
         )}
 
+        {/* Silence banner */}
+        {isSilenced && !isGM && me?.isAlive && (
+          <div
+            className="card animate-fade-in"
+            style={{
+              marginBottom: 16,
+              borderColor: 'rgba(139,92,246,0.45)',
+              background: 'rgba(139,92,246,0.08)',
+              textAlign: 'center',
+              animationDelay: '0.1s',
+            }}
+          >
+            <p
+              className="font-heading"
+              style={{
+                color: '#a78bfa',
+                margin: '0 0 4px',
+                fontSize: '0.9rem',
+              }}
+            >
+              🌀 You have been silenced
+            </p>
+            <p
+              style={{ color: 'var(--text2)', margin: 0, fontSize: '0.82rem' }}
+            >
+              The Spellcaster stole your voice. You cannot chat or vote today.
+            </p>
+          </div>
+        )}
+
         {/* Seer private result */}
         {myRole === 'seer' && seerResult && (
           <div
@@ -214,6 +248,78 @@ export default function DayPhase({
             </p>
             <p style={{ margin: 0, color: 'var(--text)', fontSize: '0.95rem' }}>
               {seerResult}
+            </p>
+            <p
+              style={{
+                margin: '6px 0 0',
+                color: 'var(--text3)',
+                fontSize: '0.75rem',
+              }}
+            >
+              Only you can see this.
+            </p>
+          </div>
+        )}
+
+        {/* Player Inspector private result */}
+        {myRole === 'playerInspector' && me?.piResult && (
+          <div
+            className="card animate-fade-in"
+            style={{
+              marginBottom: 16,
+              borderColor: 'rgba(14,165,233,0.4)',
+              background: 'rgba(14,165,233,0.07)',
+              animationDelay: '0.15s',
+            }}
+          >
+            <p
+              className="font-heading"
+              style={{
+                color: '#38bdf8',
+                margin: '0 0 6px',
+                fontSize: '0.8rem',
+              }}
+            >
+              🔍 Your Inspection Result
+            </p>
+            <p style={{ margin: 0, color: 'var(--text)', fontSize: '0.95rem' }}>
+              {me.piResult}
+            </p>
+            <p
+              style={{
+                margin: '6px 0 0',
+                color: 'var(--text3)',
+                fontSize: '0.75rem',
+              }}
+            >
+              Only you can see this.
+            </p>
+          </div>
+        )}
+
+        {/* Fortune Teller private result */}
+        {myRole === 'fortuneTeller' && me?.ftResult && (
+          <div
+            className="card animate-fade-in"
+            style={{
+              marginBottom: 16,
+              borderColor: 'rgba(99,102,241,0.4)',
+              background: 'rgba(99,102,241,0.07)',
+              animationDelay: '0.15s',
+            }}
+          >
+            <p
+              className="font-heading"
+              style={{
+                color: '#818cf8',
+                margin: '0 0 6px',
+                fontSize: '0.8rem',
+              }}
+            >
+              🎱 Your Fortune Telling Result
+            </p>
+            <p style={{ margin: 0, color: 'var(--text)', fontSize: '0.95rem' }}>
+              {me.ftResult}
             </p>
             <p
               style={{
@@ -276,6 +382,18 @@ export default function DayPhase({
                       }}
                     >
                       (you)
+                    </span>
+                  )}
+                  {p.silenced && p.isAlive && (
+                    <span
+                      style={{
+                        color: '#a78bfa',
+                        fontSize: '0.72rem',
+                        marginLeft: 6,
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      🌀 silenced
                     </span>
                   )}
                 </span>
@@ -407,7 +525,7 @@ export default function DayPhase({
             <div ref={chatEndRef} />
           </div>
 
-          {me?.isAlive && !isGM ? (
+          {me?.isAlive && !isGM && !isSilenced ? (
             <form onSubmit={handleSend} style={{ display: 'flex', gap: 8 }}>
               <input
                 className="input"
@@ -444,6 +562,11 @@ export default function DayPhase({
                 <>
                   <IconEye size={13} color="var(--text3)" /> Game Masters
                   observe silently.
+                </>
+              ) : isSilenced ? (
+                <>
+                  <span style={{ fontSize: 13 }}>🌀</span> The Spellcaster has
+                  silenced you.
                 </>
               ) : (
                 <>

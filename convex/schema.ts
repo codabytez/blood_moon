@@ -16,11 +16,13 @@ export default defineSchema({
     winner: v.optional(v.union(v.literal('villagers'), v.literal('mafia'))),
     nightAnnouncement: v.optional(v.string()),
     eliminationAnnouncement: v.optional(v.string()),
-    // Hunter revenge mini-phase
+    // Hunter / King revenge mini-phase
     pendingHunterId: v.optional(v.id('players')),
     hunterReturnPhase: v.optional(
       v.union(v.literal('day'), v.literal('night'))
     ),
+    // Diseased mechanic: skip mafia kill the following night
+    skipNextNightKill: v.optional(v.boolean()),
   }).index('by_code', ['code']),
 
   players: defineTable({
@@ -28,6 +30,7 @@ export default defineSchema({
     name: v.string(),
     role: v.optional(
       v.union(
+        // Original roles
         v.literal('mafia'),
         v.literal('villager'),
         v.literal('seer'),
@@ -36,13 +39,37 @@ export default defineSchema({
         v.literal('prince'),
         v.literal('lycan'),
         v.literal('mason'),
-        v.literal('apprenticeSeer')
+        v.literal('apprenticeSeer'),
+        // New roles
+        v.literal('bodyguard'),
+        v.literal('fortuneTeller'),
+        v.literal('playerInspector'),
+        v.literal('priest'),
+        v.literal('spellcaster'),
+        v.literal('amuletOfProtection'),
+        v.literal('beholder'),
+        v.literal('toughGuy'),
+        v.literal('king'),
+        v.literal('diseased'),
+        v.literal('cursed'),
+        v.literal('pacifist'),
+        v.literal('villageIdiot')
       )
     ),
     isAlive: v.boolean(),
     isHost: v.boolean(),
     sessionId: v.string(),
+    // Night results
     seerResult: v.optional(v.string()),
+    piResult: v.optional(v.string()), // playerInspector: "Suspicious" | "Clear"
+    ftResult: v.optional(v.string()), // fortuneTeller: exact role name
+    beholderResult: v.optional(v.string()), // beholder: seer's name
+    // Role state
+    silenced: v.optional(v.boolean()),
+    toughGuyHit: v.optional(v.boolean()),
+    toughGuyScheduledDeath: v.optional(v.boolean()),
+    amuletUsed: v.optional(v.boolean()),
+    bodyguardLastTargetId: v.optional(v.id('players')),
     // Host only: false = playing with a role, true = GM/spectator (sees everything, no role)
     isSpectating: v.optional(v.boolean()),
   })
@@ -57,8 +84,12 @@ export default defineSchema({
     targetId: v.id('players'),
     actionType: v.union(
       v.literal('kill'),
-      v.literal('investigate'),
-      v.literal('save')
+      v.literal('investigate'), // seer
+      v.literal('save'), // doctor, priest, amuletOfProtection
+      v.literal('protect'), // bodyguard
+      v.literal('inspect'), // playerInspector
+      v.literal('silence'), // spellcaster
+      v.literal('investigate_ft') // fortuneTeller
     ),
   })
     .index('by_game_round', ['gameId', 'round'])

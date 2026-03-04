@@ -2,6 +2,30 @@ import { mutation, query } from './_generated/server'
 import { v, ConvexError } from 'convex/values'
 import { Id } from './_generated/dataModel'
 
+type Role =
+  | 'mafia'
+  | 'villager'
+  | 'seer'
+  | 'doctor'
+  | 'hunter'
+  | 'prince'
+  | 'lycan'
+  | 'mason'
+  | 'apprenticeSeer'
+  | 'bodyguard'
+  | 'fortuneTeller'
+  | 'playerInspector'
+  | 'priest'
+  | 'spellcaster'
+  | 'amuletOfProtection'
+  | 'beholder'
+  | 'toughGuy'
+  | 'king'
+  | 'diseased'
+  | 'cursed'
+  | 'pacifist'
+  | 'villageIdiot'
+
 function generateCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = ''
@@ -11,27 +35,35 @@ function generateCode(): string {
   return code
 }
 
-function assignRoles(playerCount: number): string[] {
+function assignRoles(playerCount: number): Role[] {
   const n = playerCount
-  const mafiaCount = n >= 10 ? 3 : n >= 7 ? 2 : 1
-  const hasSeer = n >= 5
-  const hasDoctor = n >= 7
-  const hasHunter = n >= 8
-  const masonCount = n >= 9 ? 2 : 0
-  const hasLycan = n >= 11
-  const hasApprentice = n >= 13
-  const hasPrince = n >= 13
 
-  const roles: string[] = [
-    ...Array(mafiaCount).fill('mafia'),
-    ...(hasSeer ? ['seer'] : []),
-    ...(hasDoctor ? ['doctor'] : []),
-    ...(hasHunter ? ['hunter'] : []),
-    ...Array(masonCount).fill('mason'),
-    ...(hasLycan ? ['lycan'] : []),
-    ...(hasApprentice ? ['apprenticeSeer'] : []),
-    ...(hasPrince ? ['prince'] : []),
+  const mafiaCount =
+    n >= 25 ? 6 : n >= 20 ? 5 : n >= 15 ? 4 : n >= 10 ? 3 : n >= 7 ? 2 : 1
+
+  const roles: Role[] = [
+    ...Array<Role>(mafiaCount).fill('mafia'),
+    ...(n >= 5 ? (['seer'] as Role[]) : []),
+    ...(n >= 7 ? (['doctor'] as Role[]) : []),
+    ...(n >= 8 ? (['hunter'] as Role[]) : []),
+    ...(n >= 9 ? (['mason', 'mason'] as Role[]) : []),
+    ...(n >= 11 ? (['lycan'] as Role[]) : []),
+    ...(n >= 13 ? (['apprenticeSeer', 'prince'] as Role[]) : []),
+    ...(n >= 14 ? (['beholder'] as Role[]) : []),
+    ...(n >= 15 ? (['bodyguard'] as Role[]) : []),
+    ...(n >= 16 ? (['spellcaster'] as Role[]) : []),
+    ...(n >= 17 ? (['fortuneTeller'] as Role[]) : []),
+    ...(n >= 18 ? (['toughGuy'] as Role[]) : []),
+    ...(n >= 19 ? (['cursed'] as Role[]) : []),
+    ...(n >= 20 ? (['priest'] as Role[]) : []),
+    ...(n >= 21 ? (['playerInspector'] as Role[]) : []),
+    ...(n >= 22 ? (['king'] as Role[]) : []),
+    ...(n >= 23 ? (['diseased'] as Role[]) : []),
+    ...(n >= 24 ? (['pacifist'] as Role[]) : []),
+    ...(n >= 25 ? (['amuletOfProtection'] as Role[]) : []),
+    ...(n >= 26 ? (['villageIdiot'] as Role[]) : []),
   ]
+
   while (roles.length < n) roles.push('villager')
 
   // Fisher-Yates shuffle
@@ -154,18 +186,19 @@ export const startGame = mutation({
 
     const roles = assignRoles(activePlayers.length)
     for (let i = 0; i < activePlayers.length; i++) {
-      await ctx.db.patch(activePlayers[i]._id, {
-        role: roles[i] as
-          | 'mafia'
-          | 'villager'
-          | 'seer'
-          | 'doctor'
-          | 'hunter'
-          | 'prince'
-          | 'lycan'
-          | 'mason'
-          | 'apprenticeSeer',
-      })
+      await ctx.db.patch(activePlayers[i]._id, { role: roles[i] })
+    }
+
+    // Set beholderResult for beholder player(s)
+    const seerPlayer = activePlayers.find((_, i) => roles[i] === 'seer')
+    if (seerPlayer) {
+      for (let i = 0; i < activePlayers.length; i++) {
+        if (roles[i] === 'beholder') {
+          await ctx.db.patch(activePlayers[i]._id, {
+            beholderResult: seerPlayer.name,
+          })
+        }
+      }
     }
 
     await ctx.db.patch(gameId, { phase: 'night' })
@@ -193,6 +226,25 @@ export const advanceToDay = mutation({
       .withIndex('by_game', q => q.eq('gameId', gameId))
       .collect()
 
+    // ── Step 0: ToughGuy scheduled death ─────────────────────────
+    const scheduledDeath = players.find(
+      p => p.isAlive && p.toughGuyScheduledDeath
+    )
+    if (scheduledDeath) {
+      await ctx.db.patch(scheduledDeath._id, {
+        isAlive: false,
+        toughGuyScheduledDeath: false,
+      })
+      // Check apprenticeSeer promo if tough guy happened to be seer (edge case)
+      if (scheduledDeath.role === 'seer') {
+        const apprentice = players.find(
+          p => p.isAlive && p.role === 'apprenticeSeer'
+        )
+        if (apprentice) await ctx.db.patch(apprentice._id, { role: 'seer' })
+      }
+    }
+
+    // ── Step 1: Required action validation ───────────────────────
     const aliveMafia = players.filter(p => p.isAlive && p.role === 'mafia')
     const aliveSeer = players.find(p => p.isAlive && p.role === 'seer')
     const aliveDoctor = players.find(p => p.isAlive && p.role === 'doctor')
@@ -206,7 +258,9 @@ export const advanceToDay = mutation({
 
     const killAction = actions.find(a => a.actionType === 'kill')
     const seerAction = actions.find(a => a.actionType === 'investigate')
-    const doctorAction = actions.find(a => a.actionType === 'save')
+    const doctorAction = actions.find(
+      a => a.actionType === 'save' || a.actionType === 'protect'
+    )
 
     const missing: string[] = []
     if (aliveMafia.length > 0 && !killAction) missing.push('Mafia (kill)')
@@ -217,43 +271,133 @@ export const advanceToDay = mutation({
       throw new ConvexError(`Waiting for: ${missing.join(', ')}`)
     }
 
-    // ── Process night actions ─────────────────────────────────────
-    const saveAction = actions.find(a => a.actionType === 'save')
+    // ── Step 2: Collect all saves/protects ───────────────────────
+    const saveActions = actions.filter(
+      a => a.actionType === 'save' || a.actionType === 'protect'
+    )
 
-    let announcement = ''
-    let hunterKilledId: Id<'players'> | null = null
+    // Determine which targets are saved
+    const savedTargetIds = new Set<string>()
+    for (const action of saveActions) {
+      const actor = players.find(p => p._id === action.actorId)
+      if (!actor) continue
 
-    if (killAction) {
-      const target = await ctx.db.get(killAction.targetId)
-      const isSaved =
-        saveAction !== undefined && saveAction.targetId === killAction.targetId
-      if (!isSaved && target) {
-        await ctx.db.patch(killAction.targetId, { isAlive: false })
-
-        // Promote apprentice seer if the Seer was killed
-        if (target.role === 'seer') {
-          const apprentice = players.find(
-            p => p.isAlive && p.role === 'apprenticeSeer'
-          )
-          if (apprentice) await ctx.db.patch(apprentice._id, { role: 'seer' })
-        }
-
-        if (target.role === 'hunter') {
-          hunterKilledId = killAction.targetId
-          announcement = `☀️ The village woke to find ${target.name} dead. 💀`
+      if (actor.role === 'doctor') {
+        savedTargetIds.add(action.targetId)
+      } else if (actor.role === 'bodyguard') {
+        // Cannot protect same target as last night
+        if (
+          actor.bodyguardLastTargetId &&
+          actor.bodyguardLastTargetId === action.targetId
+        ) {
+          // Invalid — skip (client should have prevented this)
         } else {
+          savedTargetIds.add(action.targetId)
+          await ctx.db.patch(actor._id, {
+            bodyguardLastTargetId: action.targetId,
+          })
+        }
+      } else if (actor.role === 'priest') {
+        // Priest only protects on round 1
+        if (game.round === 1) savedTargetIds.add(action.targetId)
+      } else if (actor.role === 'amuletOfProtection') {
+        if (!actor.amuletUsed) {
+          savedTargetIds.add(action.targetId)
+          await ctx.db.patch(actor._id, { amuletUsed: true })
+        }
+      }
+    }
+
+    // ── Step 3: Kill resolution ───────────────────────────────────
+    let announcement: string
+    let revengeKillerId: Id<'players'> | null = null
+
+    // skipNextNightKill check (from Diseased death last round)
+    if (game.skipNextNightKill) {
+      await ctx.db.patch(gameId, { skipNextNightKill: false })
+      announcement = `☀️ The Diseased's curse lingers — the Mafia could not strike tonight. Everyone survived!`
+    } else if (killAction) {
+      const target = players.find(p => p._id === killAction.targetId)
+      const isSaved = savedTargetIds.has(killAction.targetId)
+
+      if (isSaved || !target) {
+        announcement = `☀️ A quiet dawn — everyone survived. Someone was protected! 🛡️`
+      } else {
+        // Special passive effects before marking dead
+        if (target.role === 'toughGuy' && !target.toughGuyHit) {
+          // Survives — will die next night
+          await ctx.db.patch(target._id, {
+            toughGuyHit: true,
+            toughGuyScheduledDeath: true,
+          })
+          announcement = `☀️ A peaceful dawn... though dark forces stirred in the night. 🌙`
+        } else if (target.role === 'cursed') {
+          // Becomes Mafia instead of dying
+          await ctx.db.patch(target._id, { role: 'mafia' })
+          announcement = `☀️ A mysterious night passes. The village senses a dark change... 🌑`
+        } else {
+          // Normal death
+          await ctx.db.patch(target._id, { isAlive: false })
+
+          if (target.role === 'diseased') {
+            await ctx.db.patch(gameId, { skipNextNightKill: true })
+          }
+
+          // Promote apprenticeSeer if seer killed
+          if (target.role === 'seer') {
+            const apprentice = players.find(
+              p => p.isAlive && p.role === 'apprenticeSeer'
+            )
+            if (apprentice) await ctx.db.patch(apprentice._id, { role: 'seer' })
+          }
+
+          if (target.role === 'hunter' || target.role === 'king') {
+            revengeKillerId = target._id
+          }
+
           announcement = `☀️ The village woke to find ${target.name} dead. 💀`
         }
-      } else {
-        announcement = `☀️ A quiet dawn — everyone survived. Someone was protected! 🛡️`
       }
     } else {
       announcement = `☀️ A peaceful night. Everyone woke up safe. 🌙`
     }
 
-    // Seer investigation (lycan appears as Mafia)
+    // ── Step 4: Spellcaster silence ───────────────────────────────
+    // Clear previous silences first
+    for (const p of players) {
+      if (p.silenced) await ctx.db.patch(p._id, { silenced: false })
+    }
+    const silenceAction = actions.find(a => a.actionType === 'silence')
+    if (silenceAction) {
+      await ctx.db.patch(silenceAction.targetId, { silenced: true })
+    }
+
+    // ── Step 5: Player Inspector results ─────────────────────────
+    const inspectActions = actions.filter(a => a.actionType === 'inspect')
+    for (const action of inspectActions) {
+      const target = players.find(p => p._id === action.targetId)
+      if (target) {
+        const suspicious = target.role === 'mafia' || target.role === 'lycan'
+        await ctx.db.patch(action.actorId, {
+          piResult: suspicious ? 'Suspicious 🔴' : 'Clear 🟢',
+        })
+      }
+    }
+
+    // ── Step 6: Fortune Teller results ───────────────────────────
+    const ftActions = actions.filter(a => a.actionType === 'investigate_ft')
+    for (const action of ftActions) {
+      const target = players.find(p => p._id === action.targetId)
+      if (target?.role) {
+        await ctx.db.patch(action.actorId, {
+          ftResult: `${target.name} is ${target.role}`,
+        })
+      }
+    }
+
+    // ── Step 7: Seer investigation ───────────────────────────────
     if (seerAction) {
-      const target = await ctx.db.get(seerAction.targetId)
+      const target = players.find(p => p._id === seerAction.targetId)
       if (target) {
         const isMalicious = target.role === 'mafia' || target.role === 'lycan'
         const result = isMalicious ? 'Mafia 😈' : 'Innocent 😇'
@@ -263,11 +407,11 @@ export const advanceToDay = mutation({
       }
     }
 
-    // If the hunter was killed, enter the revenge mini-phase instead of advancing to day
-    if (hunterKilledId) {
+    // ── Step 8: Advance phase or trigger revenge ──────────────────
+    if (revengeKillerId) {
       await ctx.db.patch(gameId, {
         phase: 'hunterRevenge',
-        pendingHunterId: hunterKilledId,
+        pendingHunterId: revengeKillerId,
         hunterReturnPhase: 'day',
         nightAnnouncement: announcement,
       })
@@ -324,10 +468,26 @@ export const processElimination = mutation({
       )
       .collect()
 
+    const players = await ctx.db
+      .query('players')
+      .withIndex('by_game', q => q.eq('gameId', gameId))
+      .collect()
+
+    // King's vote counts as 2; silenced players' votes are discarded
     const voteCounts: Record<string, number> = {}
     for (const vote of votesList) {
+      const voter = players.find(p => p._id === vote.voterId)
+      if (!voter) continue
+      if (voter.silenced) continue // silenced players cannot vote
+
+      const weight = voter.role === 'king' ? 2 : 1
       const key = vote.targetId as string
-      voteCounts[key] = (voteCounts[key] ?? 0) + 1
+      voteCounts[key] = (voteCounts[key] ?? 0) + weight
+    }
+
+    // Clear silenced status after voting resolves
+    for (const p of players) {
+      if (p.silenced) await ctx.db.patch(p._id, { silenced: false })
     }
 
     let eliminationAnnouncement = ''
@@ -343,9 +503,9 @@ export const processElimination = mutation({
         eliminationAnnouncement = `🎲 It's a tie! No one was eliminated. The mystery continues...`
       } else {
         const eliminatedId = topTargets[0][0] as Id<'players'>
-        const eliminated = await ctx.db.get(eliminatedId)
+        const eliminated = players.find(p => p._id === eliminatedId)
         if (eliminated) {
-          // Prince is immune to the day vote
+          // Prince is immune to day vote
           if (eliminated.role === 'prince') {
             await ctx.db.patch(gameId, {
               phase: 'night',
@@ -358,13 +518,9 @@ export const processElimination = mutation({
 
           await ctx.db.patch(eliminatedId, { isAlive: false })
 
-          // Promote apprentice seer if the Seer was voted out
+          // Promote apprenticeSeer if seer was eliminated
           if (eliminated.role === 'seer') {
-            const allPlayersNow = await ctx.db
-              .query('players')
-              .withIndex('by_game', q => q.eq('gameId', gameId))
-              .collect()
-            const apprentice = allPlayersNow.find(
+            const apprentice = players.find(
               p => p.isAlive && p.role === 'apprenticeSeer'
             )
             if (apprentice) await ctx.db.patch(apprentice._id, { role: 'seer' })
@@ -376,13 +532,9 @@ export const processElimination = mutation({
               : `a ${eliminated.role?.toUpperCase()} 😇`
           eliminationAnnouncement = `⚰️ The village has spoken. ${eliminated.name} has been eliminated — they were ${roleLabel}!`
 
-          // Hunter revenge — check win first; if game continues enter revenge phase
-          if (eliminated.role === 'hunter') {
-            const allPlayers = await ctx.db
-              .query('players')
-              .withIndex('by_game', q => q.eq('gameId', gameId))
-              .collect()
-            const alive = allPlayers.filter(p => p.isAlive && !p.isSpectating)
+          // Hunter or King revenge — check win first
+          if (eliminated.role === 'hunter' || eliminated.role === 'king') {
+            const alive = players.filter(p => p.isAlive && !p.isSpectating)
             const aliveMafia = alive.filter(p => p.role === 'mafia')
             const aliveVillagers = alive.filter(p => p.role !== 'mafia')
 
@@ -412,12 +564,8 @@ export const processElimination = mutation({
       }
     }
 
-    // ── Win condition check (for non-hunter eliminations) ──────────
-    const allPlayers = await ctx.db
-      .query('players')
-      .withIndex('by_game', q => q.eq('gameId', gameId))
-      .collect()
-    const alive = allPlayers.filter(p => p.isAlive && !p.isSpectating)
+    // ── Win condition check ────────────────────────────────────────
+    const alive = players.filter(p => p.isAlive && !p.isSpectating)
     const aliveMafia = alive.filter(p => p.role === 'mafia')
     const aliveVillagers = alive.filter(p => p.role !== 'mafia')
 
@@ -444,7 +592,7 @@ export const processElimination = mutation({
   },
 })
 
-/** Hunter fires their final shot after being eliminated. */
+/** Hunter or King fires their final shot after being eliminated. */
 export const submitHunterKill = mutation({
   args: {
     gameId: v.id('games'),
@@ -464,7 +612,7 @@ export const submitHunterKill = mutation({
       .first()
     if (!hunter) throw new ConvexError('Player not found.')
     if (hunter._id !== game.pendingHunterId)
-      throw new ConvexError('Only the Hunter can fire their last shot.')
+      throw new ConvexError('Only the Hunter or King can fire their last shot.')
 
     const target = await ctx.db.get(targetId)
     if (!target || !target.isAlive || target._id === hunter._id)
@@ -472,7 +620,7 @@ export const submitHunterKill = mutation({
 
     await ctx.db.patch(targetId, { isAlive: false })
 
-    // Promote apprentice seer if the Seer was the hunter's target
+    // Promote apprenticeSeer if the Seer was the target
     if (target.role === 'seer') {
       const allPlayersNow = await ctx.db
         .query('players')
@@ -484,7 +632,11 @@ export const submitHunterKill = mutation({
       if (apprentice) await ctx.db.patch(apprentice._id, { role: 'seer' })
     }
 
-    const hunterMsg = `💀 ${hunter.name} took ${target.name} down with them!`
+    const isKing = hunter.role === 'king'
+    const revengeMsg = isKing
+      ? `👑 The King's final decree: ${hunter.name} takes ${target.name} down with them!`
+      : `💀 ${hunter.name} took ${target.name} down with them!`
+
     const prevNight = game.nightAnnouncement ?? ''
     const prevElim = game.eliminationAnnouncement ?? ''
 
@@ -505,8 +657,8 @@ export const submitHunterKill = mutation({
         pendingHunterId: undefined,
         hunterReturnPhase: undefined,
         ...(returnPhase === 'day'
-          ? { nightAnnouncement: `${prevNight} ${hunterMsg}`.trim() }
-          : { eliminationAnnouncement: `${prevElim} ${hunterMsg}`.trim() }),
+          ? { nightAnnouncement: `${prevNight} ${revengeMsg}`.trim() }
+          : { eliminationAnnouncement: `${prevElim} ${revengeMsg}`.trim() }),
       })
     } else if (aliveMafia.length >= aliveVillagers.length) {
       await ctx.db.patch(gameId, {
@@ -515,15 +667,15 @@ export const submitHunterKill = mutation({
         pendingHunterId: undefined,
         hunterReturnPhase: undefined,
         ...(returnPhase === 'day'
-          ? { nightAnnouncement: `${prevNight} ${hunterMsg}`.trim() }
-          : { eliminationAnnouncement: `${prevElim} ${hunterMsg}`.trim() }),
+          ? { nightAnnouncement: `${prevNight} ${revengeMsg}`.trim() }
+          : { eliminationAnnouncement: `${prevElim} ${revengeMsg}`.trim() }),
       })
     } else if (returnPhase === 'day') {
       await ctx.db.patch(gameId, {
         phase: 'day',
         pendingHunterId: undefined,
         hunterReturnPhase: undefined,
-        nightAnnouncement: `${prevNight} ${hunterMsg}`.trim(),
+        nightAnnouncement: `${prevNight} ${revengeMsg}`.trim(),
       })
     } else {
       await ctx.db.patch(gameId, {
@@ -531,16 +683,13 @@ export const submitHunterKill = mutation({
         round: game.round + 1,
         pendingHunterId: undefined,
         hunterReturnPhase: undefined,
-        eliminationAnnouncement: `${prevElim} ${hunterMsg}`.trim(),
+        eliminationAnnouncement: `${prevElim} ${revengeMsg}`.trim(),
         nightAnnouncement: undefined,
       })
     }
   },
 })
 
-/**
- * Reset a finished game back to lobby so the same group can play again.
- */
 export const resetGame = mutation({
   args: { gameId: v.id('games'), sessionId: v.string() },
   handler: async (ctx, { gameId, sessionId }) => {
@@ -566,6 +715,14 @@ export const resetGame = mutation({
         role: undefined,
         isAlive: true,
         seerResult: undefined,
+        piResult: undefined,
+        ftResult: undefined,
+        beholderResult: undefined,
+        silenced: undefined,
+        toughGuyHit: undefined,
+        toughGuyScheduledDeath: undefined,
+        amuletUsed: undefined,
+        bodyguardLastTargetId: undefined,
       })
     }
 
@@ -601,14 +758,11 @@ export const resetGame = mutation({
       nightAnnouncement: undefined,
       pendingHunterId: undefined,
       hunterReturnPhase: undefined,
+      skipNextNightKill: undefined,
     })
   },
 })
 
-/**
- * Night action status — returned to any host.
- * GMs see who was targeted; playing hosts see submitted/pending only.
- */
 export const getNightActionStatus = query({
   args: { gameId: v.id('games'), sessionId: v.string() },
   handler: async (ctx, { gameId, sessionId }) => {
@@ -634,6 +788,22 @@ export const getNightActionStatus = query({
     const aliveMafia = players.filter(p => p.isAlive && p.role === 'mafia')
     const aliveSeer = players.find(p => p.isAlive && p.role === 'seer')
     const aliveDoctor = players.find(p => p.isAlive && p.role === 'doctor')
+    const aliveBodyguard = players.find(
+      p => p.isAlive && p.role === 'bodyguard'
+    )
+    const aliveSpellcaster = players.find(
+      p => p.isAlive && p.role === 'spellcaster'
+    )
+    const aliveFortuneTeller = players.find(
+      p => p.isAlive && p.role === 'fortuneTeller'
+    )
+    const alivePI = players.find(p => p.isAlive && p.role === 'playerInspector')
+    const alivePriest = players.find(
+      p => p.isAlive && p.role === 'priest' && game.round === 1
+    )
+    const aliveAmulet = players.find(
+      p => p.isAlive && p.role === 'amuletOfProtection' && !p.amuletUsed
+    )
 
     const actions = await ctx.db
       .query('nightActions')
@@ -644,26 +814,56 @@ export const getNightActionStatus = query({
 
     const killAction = actions.find(a => a.actionType === 'kill')
     const seerAction = actions.find(a => a.actionType === 'investigate')
-    const doctorAction = actions.find(a => a.actionType === 'save')
+    const doctorAction = actions.find(
+      a =>
+        a.actionType === 'save' &&
+        players.find(p => p._id === a.actorId)?.role === 'doctor'
+    )
+    const bodyguardAction = actions.find(a => a.actionType === 'protect')
+    const spellcasterAction = actions.find(a => a.actionType === 'silence')
+    const ftAction = actions.find(a => a.actionType === 'investigate_ft')
+    const piAction = actions.find(a => a.actionType === 'inspect')
+    const priestAction = actions.find(
+      a =>
+        a.actionType === 'save' &&
+        players.find(p => p._id === a.actorId)?.role === 'priest'
+    )
+    const amuletAction = actions.find(
+      a =>
+        a.actionType === 'save' &&
+        players.find(p => p._id === a.actorId)?.role === 'amuletOfProtection'
+    )
 
-    const killTarget =
-      isGM && killAction ? await ctx.db.get(killAction.targetId) : null
-    const seerTarget =
-      isGM && seerAction ? await ctx.db.get(seerAction.targetId) : null
-    const doctorTarget =
-      isGM && doctorAction ? await ctx.db.get(doctorAction.targetId) : null
+    const getName = async (id: Id<'players'> | undefined) =>
+      id && isGM ? ((await ctx.db.get(id))?.name ?? null) : null
 
     return {
       isGM,
       mafiaNeeded: aliveMafia.length > 0,
       mafiaSubmitted: !!killAction,
-      mafiaAction: killTarget ? { targetName: killTarget.name } : null,
+      mafiaTargetName: await getName(killAction?.targetId),
       seerNeeded: !!aliveSeer,
       seerSubmitted: !!seerAction,
-      seerAction: seerTarget ? { targetName: seerTarget.name } : null,
+      seerTargetName: await getName(seerAction?.targetId),
       doctorNeeded: !!aliveDoctor,
       doctorSubmitted: !!doctorAction,
-      doctorAction: doctorTarget ? { targetName: doctorTarget.name } : null,
+      doctorTargetName: await getName(doctorAction?.targetId),
+      bodyguardNeeded: !!aliveBodyguard,
+      bodyguardSubmitted: !!bodyguardAction,
+      bodyguardTargetName: await getName(bodyguardAction?.targetId),
+      spellcasterNeeded: !!aliveSpellcaster,
+      spellcasterSubmitted: !!spellcasterAction,
+      spellcasterTargetName: await getName(spellcasterAction?.targetId),
+      fortuneTellerNeeded: !!aliveFortuneTeller,
+      fortuneTellerSubmitted: !!ftAction,
+      fortuneTellerTargetName: await getName(ftAction?.targetId),
+      piNeeded: !!alivePI,
+      piSubmitted: !!piAction,
+      piTargetName: await getName(piAction?.targetId),
+      priestNeeded: !!alivePriest,
+      priestSubmitted: !!priestAction,
+      amuletNeeded: !!aliveAmulet,
+      amuletSubmitted: !!amuletAction,
       allReady:
         (!aliveMafia.length || !!killAction) &&
         (!aliveSeer || !!seerAction) &&

@@ -1,6 +1,22 @@
 import { mutation } from './_generated/server'
 import { v, ConvexError } from 'convex/values'
 
+const PASSIVE_ROLES = new Set([
+  'villager',
+  'hunter',
+  'prince',
+  'lycan',
+  'mason',
+  'apprenticeSeer',
+  'beholder',
+  'toughGuy',
+  'king',
+  'diseased',
+  'cursed',
+  'pacifist',
+  'villageIdiot',
+])
+
 export const submit = mutation({
   args: {
     gameId: v.id('games'),
@@ -16,30 +32,36 @@ export const submit = mutation({
       .first()
     if (!actor) throw new ConvexError('Player not found.')
     if (!actor.isAlive) throw new ConvexError('Dead players cannot act.')
-    const passiveRoles = new Set([
-      'villager',
-      'hunter',
-      'prince',
-      'lycan',
-      'mason',
-      'apprenticeSeer',
-    ])
-    if (!actor.role || passiveRoles.has(actor.role))
+    if (!actor.role || PASSIVE_ROLES.has(actor.role))
       throw new ConvexError('This role has no night action.')
 
     const game = await ctx.db.get(gameId)
     if (!game || game.phase !== 'night')
       throw new ConvexError('Not in night phase.')
 
+    // Priest can only act on round 1
+    if (actor.role === 'priest' && game.round !== 1)
+      throw new ConvexError('The Priest can only act on the first night.')
+
+    // Amulet can only be used once
+    if (actor.role === 'amuletOfProtection' && actor.amuletUsed)
+      throw new ConvexError('The Amulet of Protection has already been used.')
+
     const target = await ctx.db.get(targetId)
     if (!target || !target.isAlive) throw new ConvexError('Invalid target.')
 
-    const actionType =
-      actor.role === 'mafia'
-        ? 'kill'
-        : actor.role === 'seer'
-          ? 'investigate'
-          : 'save'
+    // Bodyguard cannot protect same player two nights in a row
+    if (
+      actor.role === 'bodyguard' &&
+      actor.bodyguardLastTargetId &&
+      actor.bodyguardLastTargetId === targetId
+    ) {
+      throw new ConvexError(
+        'You cannot protect the same player two nights in a row.'
+      )
+    }
+
+    const actionType = roleToActionType(actor.role)
 
     if (actionType === 'kill') {
       // Any mafia member can update the shared kill target
@@ -63,7 +85,7 @@ export const submit = mutation({
         })
       }
     } else {
-      // Seer / Doctor — one action per player per round
+      // All other roles: one action per player per round (update if exists)
       const existing = await ctx.db
         .query('nightActions')
         .withIndex('by_actor_round', q =>
@@ -72,7 +94,7 @@ export const submit = mutation({
         .first()
 
       if (existing) {
-        await ctx.db.patch(existing._id, { targetId })
+        await ctx.db.patch(existing._id, { targetId, actionType })
       } else {
         await ctx.db.insert('nightActions', {
           gameId,
@@ -85,3 +107,35 @@ export const submit = mutation({
     }
   },
 })
+
+function roleToActionType(
+  role: string
+):
+  | 'kill'
+  | 'investigate'
+  | 'save'
+  | 'protect'
+  | 'inspect'
+  | 'silence'
+  | 'investigate_ft' {
+  switch (role) {
+    case 'mafia':
+      return 'kill'
+    case 'seer':
+      return 'investigate'
+    case 'doctor':
+    case 'priest':
+    case 'amuletOfProtection':
+      return 'save'
+    case 'bodyguard':
+      return 'protect'
+    case 'playerInspector':
+      return 'inspect'
+    case 'spellcaster':
+      return 'silence'
+    case 'fortuneTeller':
+      return 'investigate_ft'
+    default:
+      return 'save'
+  }
+}

@@ -46,6 +46,7 @@ export default function HunterRevenge({
   const me = players.find(p => p.isMe)
   const isHunter = me?._id === pendingHunterId
   const hunter = players.find(p => p._id === pendingHunterId)
+  const isKing = hunter?.role === 'king'
   const targetablePlayers = players.filter(
     p => p.isAlive && !p.isSpectating && p._id !== pendingHunterId
   )
@@ -90,18 +91,20 @@ export default function HunterRevenge({
           className="animate-float"
           style={{ fontSize: 60, marginBottom: 8 }}
         >
-          🏹
+          {isKing ? '🤴' : '🏹'}
         </div>
         <h1
           className="font-title"
           style={{
-            color: '#fb923c',
+            color: isKing ? '#facc15' : '#fb923c',
             fontSize: '2rem',
             margin: 0,
-            textShadow: '0 0 30px rgba(251,146,60,0.5)',
+            textShadow: isKing
+              ? '0 0 30px rgba(234,179,8,0.5)'
+              : '0 0 30px rgba(251,146,60,0.5)',
           }}
         >
-          Hunter's Last Stand
+          {isKing ? "The King's Final Decree" : "Hunter's Last Stand"}
         </h1>
         <p
           style={{
@@ -110,7 +113,9 @@ export default function HunterRevenge({
             fontSize: '0.9rem',
           }}
         >
-          {hunter?.name} rises from the grave for one final strike...
+          {isKing
+            ? `${hunter?.name} falls — but decrees one final judgement...`
+            : `${hunter?.name} rises from the grave for one final strike...`}
         </p>
       </div>
 
@@ -140,9 +145,15 @@ export default function HunterRevenge({
           >
             <h2
               className="font-heading"
-              style={{ margin: '0 0 4px', fontSize: '1rem', color: '#fb923c' }}
+              style={{
+                margin: '0 0 4px',
+                fontSize: '1rem',
+                color: isKing ? '#facc15' : '#fb923c',
+              }}
             >
-              🏹 Choose your final target
+              {isKing
+                ? '🤴 Issue your final decree'
+                : '🏹 Choose your final target'}
             </h2>
             <p
               style={{
@@ -151,7 +162,9 @@ export default function HunterRevenge({
                 fontSize: '0.8rem',
               }}
             >
-              You have been eliminated. Take one player down with you.
+              {isKing
+                ? 'The fallen King may take one player down by royal decree.'
+                : 'You have been eliminated. Take one player down with you.'}
             </p>
 
             <div
@@ -224,11 +237,20 @@ export default function HunterRevenge({
 
             <button
               className="btn btn-primary"
-              style={{ width: '100%', background: '#ea580c' }}
+              style={{
+                width: '100%',
+                background: isKing ? '#a16207' : '#ea580c',
+              }}
               disabled={!selectedTarget || loading}
               onClick={handleFire}
             >
-              {loading ? 'Firing...' : '🏹 Fire!'}
+              {loading
+                ? isKing
+                  ? 'Decreeing...'
+                  : 'Firing...'
+                : isKing
+                  ? '🤴 Decree!'
+                  : '🏹 Fire!'}
             </button>
           </div>
         ) : (
@@ -244,18 +266,20 @@ export default function HunterRevenge({
               className="animate-float"
               style={{ fontSize: 60, marginBottom: 16 }}
             >
-              🏹
+              {isKing ? '🤴' : '🏹'}
             </div>
             <h2
               className="font-heading"
               style={{ margin: '0 0 8px', fontSize: '1.1rem' }}
             >
-              The Hunter rises...
+              {isKing ? 'The King decrees...' : 'The Hunter rises...'}
             </h2>
             <p style={{ color: 'var(--text2)', margin: 0, fontSize: '0.9rem' }}>
               {isGM
                 ? `${hunter?.name} is choosing their final target.`
-                : 'Wait silently. The Hunter takes aim...'}
+                : isKing
+                  ? 'Wait silently. The King issues one final judgement...'
+                  : 'Wait silently. The Hunter takes aim...'}
             </p>
           </div>
         )}
@@ -303,7 +327,7 @@ export default function HunterRevenge({
                   }}
                 >
                   {p._id === pendingHunterId ? (
-                    <span style={{ fontSize: 13 }}>🏹</span>
+                    <span style={{ fontSize: 13 }}>{isKing ? '🤴' : '🏹'}</span>
                   ) : p.isAlive ? (
                     <IconMoon size={13} color="var(--text3)" />
                   ) : (

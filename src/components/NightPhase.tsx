@@ -14,19 +14,38 @@ type Player = {
   role?: string
   isMe?: boolean
   isSpectating?: boolean
+  piResult?: string
+  ftResult?: string
+  beholderResult?: string
 }
 
 type ActionStatus = {
   isGM: boolean
   mafiaNeeded: boolean
   mafiaSubmitted: boolean
-  mafiaAction: { targetName: string } | null
+  mafiaTargetName: string | null
   seerNeeded: boolean
   seerSubmitted: boolean
-  seerAction: { targetName: string } | null
+  seerTargetName: string | null
   doctorNeeded: boolean
   doctorSubmitted: boolean
-  doctorAction: { targetName: string } | null
+  doctorTargetName: string | null
+  bodyguardNeeded: boolean
+  bodyguardSubmitted: boolean
+  bodyguardTargetName: string | null
+  spellcasterNeeded: boolean
+  spellcasterSubmitted: boolean
+  spellcasterTargetName: string | null
+  fortuneTellerNeeded: boolean
+  fortuneTellerSubmitted: boolean
+  fortuneTellerTargetName: string | null
+  piNeeded: boolean
+  piSubmitted: boolean
+  piTargetName: string | null
+  priestNeeded: boolean
+  priestSubmitted: boolean
+  amuletNeeded: boolean
+  amuletSubmitted: boolean
   allReady: boolean
 } | null
 
@@ -65,6 +84,42 @@ const roleActions: Record<
     color: '#38bdf8',
     warning: 'You may also protect yourself.',
   },
+  bodyguard: {
+    verb: 'Choose someone to protect tonight',
+    icon: '🛡️',
+    color: '#2dd4bf',
+    warning: 'You cannot protect the same player two nights in a row.',
+  },
+  fortuneTeller: {
+    verb: 'Peer into the future — choose who to read',
+    icon: '🎱',
+    color: '#818cf8',
+    warning: 'You will learn their exact role at dawn.',
+  },
+  playerInspector: {
+    verb: "Inspect a player's alignment",
+    icon: '🔍',
+    color: '#38bdf8',
+    warning: 'You will learn if they are Suspicious or Clear.',
+  },
+  priest: {
+    verb: 'Bless one player — first night only',
+    icon: '⛪',
+    color: '#fb7185',
+    warning: 'Your blessing only works on the first night.',
+  },
+  spellcaster: {
+    verb: 'Silence one player for the day',
+    icon: '🌀',
+    color: '#a78bfa',
+    warning: 'The silenced player cannot chat or vote tomorrow.',
+  },
+  amuletOfProtection: {
+    verb: 'Use the amulet to protect one player',
+    icon: '🧿',
+    color: '#fbbf24',
+    warning: 'Once used, the amulet is spent. Choose wisely.',
+  },
   hunter: {
     verb: 'Wait in the shadows',
     icon: '🏹',
@@ -97,6 +152,53 @@ const roleActions: Record<
     color: '#c084fc',
     warning:
       "If the Seer falls, their gift passes to you. You'll act from the next night.",
+  },
+  beholder: {
+    verb: 'The Beholder watches in silence',
+    icon: '👁️',
+    color: '#22d3ee',
+    warning: 'You know who the Seer is. Guard that secret with your life.',
+  },
+  toughGuy: {
+    verb: 'Rest easy — you can take a hit',
+    icon: '💪',
+    color: '#fb923c',
+    warning:
+      'You will survive the first werewolf attack — but you die the following night.',
+  },
+  king: {
+    verb: 'Rule wisely — your vote counts double',
+    icon: '🤴',
+    color: '#facc15',
+    warning:
+      'If you are eliminated, you get a revenge shot just like the Hunter.',
+  },
+  diseased: {
+    verb: 'Sleep, and hope they do not find you',
+    icon: '🤢',
+    color: '#94a3b8',
+    warning:
+      'If the Mafia kills you, they cannot kill anyone the following night.',
+  },
+  cursed: {
+    verb: 'The curse runs deep...',
+    icon: '🩸',
+    color: '#f87171',
+    warning:
+      'If the Mafia targets you, you will become one of them instead of dying.',
+  },
+  pacifist: {
+    verb: 'You seek peace, not justice',
+    icon: '🕊️',
+    color: '#7dd3fc',
+    warning:
+      'You cannot vote to eliminate anyone. But your voice still matters.',
+  },
+  villageIdiot: {
+    verb: 'Blend in... or not',
+    icon: '🤡',
+    color: '#a3e635',
+    warning: 'No special powers — just a good excuse for acting suspicious.',
   },
 }
 
@@ -138,7 +240,15 @@ export default function NightPhase({
       ? players.filter(p => p.role === 'mafia' && !p.isMe && p.isAlive)
       : []
   const hasAction =
-    myRole === 'mafia' || myRole === 'seer' || myRole === 'doctor'
+    myRole === 'mafia' ||
+    myRole === 'seer' ||
+    myRole === 'doctor' ||
+    myRole === 'bodyguard' ||
+    myRole === 'fortuneTeller' ||
+    myRole === 'playerInspector' ||
+    myRole === 'priest' ||
+    myRole === 'spellcaster' ||
+    myRole === 'amuletOfProtection'
   const actionCfg = roleActions[myRole]
 
   useEffect(() => {
@@ -267,6 +377,112 @@ export default function NightPhase({
       )}
 
       <div style={{ width: '100%', maxWidth: 520 }}>
+        {/* Beholder result (night 1 only — shows seer's name) */}
+        {!isGM && myRole === 'beholder' && me?.beholderResult && (
+          <div
+            className="card animate-fade-in"
+            style={{
+              marginBottom: 16,
+              borderColor: 'rgba(6,182,212,0.4)',
+              background: 'rgba(6,182,212,0.07)',
+            }}
+          >
+            <p
+              className="font-heading"
+              style={{
+                color: '#22d3ee',
+                margin: '0 0 6px',
+                fontSize: '0.8rem',
+              }}
+            >
+              👁️ Your Beholder Sight
+            </p>
+            <p style={{ margin: 0, color: 'var(--text)', fontSize: '0.95rem' }}>
+              The Seer is{' '}
+              <strong style={{ color: '#22d3ee' }}>{me.beholderResult}</strong>
+            </p>
+            <p
+              style={{
+                margin: '6px 0 0',
+                color: 'var(--text3)',
+                fontSize: '0.75rem',
+              }}
+            >
+              Only you can see this. Protect them.
+            </p>
+          </div>
+        )}
+
+        {/* Player Inspector result from previous night */}
+        {!isGM && myRole === 'playerInspector' && me?.piResult && (
+          <div
+            className="card animate-fade-in"
+            style={{
+              marginBottom: 16,
+              borderColor: 'rgba(14,165,233,0.4)',
+              background: 'rgba(14,165,233,0.07)',
+            }}
+          >
+            <p
+              className="font-heading"
+              style={{
+                color: '#38bdf8',
+                margin: '0 0 6px',
+                fontSize: '0.8rem',
+              }}
+            >
+              🔍 Your Inspection Result
+            </p>
+            <p style={{ margin: 0, color: 'var(--text)', fontSize: '0.95rem' }}>
+              {me.piResult}
+            </p>
+            <p
+              style={{
+                margin: '6px 0 0',
+                color: 'var(--text3)',
+                fontSize: '0.75rem',
+              }}
+            >
+              Only you can see this.
+            </p>
+          </div>
+        )}
+
+        {/* Fortune Teller result from previous night */}
+        {!isGM && myRole === 'fortuneTeller' && me?.ftResult && (
+          <div
+            className="card animate-fade-in"
+            style={{
+              marginBottom: 16,
+              borderColor: 'rgba(99,102,241,0.4)',
+              background: 'rgba(99,102,241,0.07)',
+            }}
+          >
+            <p
+              className="font-heading"
+              style={{
+                color: '#818cf8',
+                margin: '0 0 6px',
+                fontSize: '0.8rem',
+              }}
+            >
+              🎱 Your Fortune Telling Result
+            </p>
+            <p style={{ margin: 0, color: 'var(--text)', fontSize: '0.95rem' }}>
+              {me.ftResult}
+            </p>
+            <p
+              style={{
+                margin: '6px 0 0',
+                color: 'var(--text3)',
+                fontSize: '0.75rem',
+              }}
+            >
+              Only you can see this.
+            </p>
+          </div>
+        )}
+
         {/* Mafia allies */}
         {myRole === 'mafia' && myMafiaPartners.length > 0 && (
           <div
@@ -328,21 +544,63 @@ export default function NightPhase({
                 <StatusRow
                   label="Mafia Kill"
                   submitted={nightActionStatus.mafiaSubmitted}
-                  target={nightActionStatus.mafiaAction?.targetName}
+                  target={nightActionStatus.mafiaTargetName ?? undefined}
                 />
               )}
               {nightActionStatus.seerNeeded && (
                 <StatusRow
                   label="Seer Investigation"
                   submitted={nightActionStatus.seerSubmitted}
-                  target={nightActionStatus.seerAction?.targetName}
+                  target={nightActionStatus.seerTargetName ?? undefined}
                 />
               )}
               {nightActionStatus.doctorNeeded && (
                 <StatusRow
                   label="Doctor Protection"
                   submitted={nightActionStatus.doctorSubmitted}
-                  target={nightActionStatus.doctorAction?.targetName}
+                  target={nightActionStatus.doctorTargetName ?? undefined}
+                />
+              )}
+              {nightActionStatus.bodyguardNeeded && (
+                <StatusRow
+                  label="Bodyguard Protection"
+                  submitted={nightActionStatus.bodyguardSubmitted}
+                  target={nightActionStatus.bodyguardTargetName ?? undefined}
+                />
+              )}
+              {nightActionStatus.spellcasterNeeded && (
+                <StatusRow
+                  label="Spellcaster Silence"
+                  submitted={nightActionStatus.spellcasterSubmitted}
+                  target={nightActionStatus.spellcasterTargetName ?? undefined}
+                />
+              )}
+              {nightActionStatus.fortuneTellerNeeded && (
+                <StatusRow
+                  label="Fortune Teller Reading"
+                  submitted={nightActionStatus.fortuneTellerSubmitted}
+                  target={
+                    nightActionStatus.fortuneTellerTargetName ?? undefined
+                  }
+                />
+              )}
+              {nightActionStatus.piNeeded && (
+                <StatusRow
+                  label="Player Inspector"
+                  submitted={nightActionStatus.piSubmitted}
+                  target={nightActionStatus.piTargetName ?? undefined}
+                />
+              )}
+              {nightActionStatus.priestNeeded && (
+                <StatusRow
+                  label="Priest Blessing"
+                  submitted={nightActionStatus.priestSubmitted}
+                />
+              )}
+              {nightActionStatus.amuletNeeded && (
+                <StatusRow
+                  label="Amulet of Protection"
+                  submitted={nightActionStatus.amuletSubmitted}
                 />
               )}
             </div>

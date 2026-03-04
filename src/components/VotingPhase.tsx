@@ -14,6 +14,7 @@ type Player = {
   role?: string
   isMe?: boolean
   isSpectating?: boolean
+  silenced?: boolean
 }
 
 type Props = {
@@ -49,6 +50,9 @@ export default function VotingPhase({
   const myVote = voteData?.myVote
   const tally = voteData?.tally ?? []
   const totalVotes = voteData?.totalVotes ?? 0
+  const isPacifist = me?.role === 'pacifist'
+  const isSilenced = me?.silenced === true
+  const canVote = !isPacifist && !isSilenced
 
   async function handleVote(targetId: Id<'players'>) {
     setSubmitting(true)
@@ -214,95 +218,150 @@ export default function VotingPhase({
             className="card animate-fade-in"
             style={{ marginBottom: 16, animationDelay: '0.1s' }}
           >
-            <h2
-              className="font-heading"
-              style={{ margin: '0 0 14px', fontSize: '0.95rem' }}
-            >
-              {myVote ? 'Your vote is cast' : 'Cast your vote'}
-            </h2>
-
-            {myVote && (
-              <div
-                style={{
-                  padding: '8px 12px',
-                  background: 'rgba(217,119,6,0.1)',
-                  borderRadius: 8,
-                  marginBottom: 12,
-                  fontSize: '0.85rem',
-                  color: 'var(--text2)',
-                  border: '1px solid rgba(217,119,6,0.2)',
-                }}
-              >
-                You voted for{' '}
-                <strong style={{ color: 'var(--accent)' }}>
-                  {players.find(p => p._id === myVote)?.name}
-                </strong>
-                . You can change it.
+            {!canVote ? (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <p
+                  className="font-heading"
+                  style={{
+                    color: isPacifist ? '#7dd3fc' : '#a78bfa',
+                    margin: '0 0 6px',
+                    fontSize: '0.95rem',
+                  }}
+                >
+                  {isPacifist ? '🕊️ You are a Pacifist' : '🌀 You are silenced'}
+                </p>
+                <p
+                  style={{
+                    color: 'var(--text2)',
+                    margin: 0,
+                    fontSize: '0.82rem',
+                  }}
+                >
+                  {isPacifist
+                    ? 'You cannot vote to eliminate anyone.'
+                    : 'The Spellcaster stole your voice. You cannot vote today.'}
+                </p>
               </div>
-            )}
+            ) : (
+              <>
+                <h2
+                  className="font-heading"
+                  style={{ margin: '0 0 14px', fontSize: '0.95rem' }}
+                >
+                  {myVote ? 'Your vote is cast' : 'Cast your vote'}
+                  {me?.role === 'king' && (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: '0.72rem',
+                        color: '#facc15',
+                        fontFamily: 'Cinzel, serif',
+                      }}
+                    >
+                      (×2 King)
+                    </span>
+                  )}
+                </h2>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {alivePlayers
-                .filter(p => !p.isMe && !p.isSpectating)
-                .map(p => (
-                  <button
-                    key={p._id}
-                    onClick={() => handleVote(p._id)}
-                    disabled={submitting}
+                {myVote && (
+                  <div
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '9px 14px',
+                      padding: '8px 12px',
+                      background: 'rgba(217,119,6,0.1)',
                       borderRadius: 8,
-                      background:
-                        myVote === p._id
-                          ? 'rgba(220,38,38,0.1)'
-                          : 'var(--surface)',
-                      border: `1.5px solid ${myVote === p._id ? 'rgba(220,38,38,0.5)' : 'var(--border)'}`,
-                      cursor: submitting ? 'not-allowed' : 'pointer',
-                      color: 'var(--text)',
-                      transition: 'all 0.15s',
-                      width: '100%',
-                      textAlign: 'left',
-                      opacity: submitting ? 0.7 : 1,
+                      marginBottom: 12,
+                      fontSize: '0.85rem',
+                      color: 'var(--text2)',
+                      border: '1px solid rgba(217,119,6,0.2)',
                     }}
                   >
-                    {myVote === p._id ? (
-                      <IconCrosshair size={20} color="#f87171" />
-                    ) : (
-                      <PlayerAvatar name={p.name} size={28} />
-                    )}
-                    <span style={{ fontWeight: myVote === p._id ? 600 : 400 }}>
-                      {p.name}
-                    </span>
-                    {myVote === p._id && (
-                      <span
+                    You voted for{' '}
+                    <strong style={{ color: 'var(--accent)' }}>
+                      {players.find(p => p._id === myVote)?.name}
+                    </strong>
+                    . You can change it.
+                  </div>
+                )}
+
+                <div
+                  style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+                >
+                  {alivePlayers
+                    .filter(p => !p.isMe && !p.isSpectating)
+                    .map(p => (
+                      <button
+                        key={p._id}
+                        onClick={() => handleVote(p._id)}
+                        disabled={submitting}
                         style={{
-                          marginLeft: 'auto',
-                          color: '#f87171',
-                          fontSize: '0.8rem',
-                          fontFamily: 'Cinzel, serif',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          padding: '9px 14px',
+                          borderRadius: 8,
+                          background:
+                            myVote === p._id
+                              ? 'rgba(220,38,38,0.1)'
+                              : 'var(--surface)',
+                          border: `1.5px solid ${myVote === p._id ? 'rgba(220,38,38,0.5)' : 'var(--border)'}`,
+                          cursor: submitting ? 'not-allowed' : 'pointer',
+                          color: 'var(--text)',
+                          transition: 'all 0.15s',
+                          width: '100%',
+                          textAlign: 'left',
+                          opacity: submitting ? 0.7 : 1,
                         }}
                       >
-                        Your Vote ✓
-                      </span>
-                    )}
-                  </button>
-                ))}
-            </div>
+                        {myVote === p._id ? (
+                          <IconCrosshair size={20} color="#f87171" />
+                        ) : (
+                          <PlayerAvatar name={p.name} size={28} />
+                        )}
+                        <span
+                          style={{ fontWeight: myVote === p._id ? 600 : 400 }}
+                        >
+                          {p.name}
+                        </span>
+                        {p.silenced && (
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              color: '#a78bfa',
+                              fontStyle: 'italic',
+                            }}
+                          >
+                            🌀
+                          </span>
+                        )}
+                        {myVote === p._id && (
+                          <span
+                            style={{
+                              marginLeft: 'auto',
+                              color: '#f87171',
+                              fontSize: '0.8rem',
+                              fontFamily: 'Cinzel, serif',
+                            }}
+                          >
+                            Your Vote ✓
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                </div>
 
-            {error && (
-              <p
-                style={{
-                  color: '#f87171',
-                  fontSize: '0.85rem',
-                  marginTop: 10,
-                  marginBottom: 0,
-                }}
-              >
-                {error}
-              </p>
+                {error && (
+                  <p
+                    style={{
+                      color: '#f87171',
+                      fontSize: '0.85rem',
+                      marginTop: 10,
+                      marginBottom: 0,
+                    }}
+                  >
+                    {error}
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}

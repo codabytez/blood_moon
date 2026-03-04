@@ -23,6 +23,19 @@ const ROLES = [
   { label: 'Lycan', cls: 'badge-lycan' },
   { label: 'Mason', cls: 'badge-mason' },
   { label: 'Apprentice Seer', cls: 'badge-apprenticeSeer' },
+  { label: 'Bodyguard', cls: 'badge-bodyguard' },
+  { label: 'Fortune Teller', cls: 'badge-fortuneTeller' },
+  { label: 'Player Inspector', cls: 'badge-playerInspector' },
+  { label: 'Priest', cls: 'badge-priest' },
+  { label: 'Spellcaster', cls: 'badge-spellcaster' },
+  { label: 'Amulet of Protection', cls: 'badge-amuletOfProtection' },
+  { label: 'Beholder', cls: 'badge-beholder' },
+  { label: 'Tough Guy', cls: 'badge-toughGuy' },
+  { label: 'King', cls: 'badge-king' },
+  { label: 'Diseased', cls: 'badge-diseased' },
+  { label: 'Cursed', cls: 'badge-cursed' },
+  { label: 'Pacifist', cls: 'badge-pacifist' },
+  { label: 'Village Idiot', cls: 'badge-villageIdiot' },
 ]
 
 export default function LandingPage({
@@ -180,7 +193,7 @@ export default function LandingPage({
             letterSpacing: '0.12em',
           }}
         >
-          4 – 14 players &nbsp;·&nbsp; deception &nbsp;·&nbsp; strategy
+          4 – 30 players &nbsp;·&nbsp; deception &nbsp;·&nbsp; strategy
         </p>
       </div>
 

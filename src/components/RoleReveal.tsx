@@ -10,6 +10,19 @@ type Role =
   | 'lycan'
   | 'mason'
   | 'apprenticeSeer'
+  | 'bodyguard'
+  | 'fortuneTeller'
+  | 'playerInspector'
+  | 'priest'
+  | 'spellcaster'
+  | 'amuletOfProtection'
+  | 'beholder'
+  | 'toughGuy'
+  | 'king'
+  | 'diseased'
+  | 'cursed'
+  | 'pacifist'
+  | 'villageIdiot'
 
 const ROLE_CONFIG: Record<
   Role,
@@ -93,6 +106,110 @@ const ROLE_CONFIG: Record<
     bg: 'rgba(192,132,252,0.12)',
     border: 'rgba(192,132,252,0.45)',
     desc: "The Seer's gift will pass to you if they fall. Until then, stay hidden and keep watch.",
+  },
+  bodyguard: {
+    emoji: '🛡️',
+    label: 'Bodyguard',
+    color: '#2dd4bf',
+    bg: 'rgba(20,184,166,0.12)',
+    border: 'rgba(20,184,166,0.4)',
+    desc: 'Each night, choose one player to protect. If the Mafia targets them, the Bodyguard takes the hit. You cannot protect the same player two nights in a row.',
+  },
+  fortuneTeller: {
+    emoji: '🎱',
+    label: 'Fortune Teller',
+    color: '#818cf8',
+    bg: 'rgba(99,102,241,0.12)',
+    border: 'rgba(99,102,241,0.4)',
+    desc: "Each night, peer into the future and learn one player's exact role. More powerful than the Seer — but use your knowledge carefully.",
+  },
+  playerInspector: {
+    emoji: '🔍',
+    label: 'Player Inspector',
+    color: '#38bdf8',
+    bg: 'rgba(14,165,233,0.12)',
+    border: 'rgba(14,165,233,0.4)',
+    desc: 'Each night, inspect one player. You will learn if they are Suspicious (Mafia or Lycan) or Clear. Simple — but vital.',
+  },
+  priest: {
+    emoji: '⛪',
+    label: 'Priest',
+    color: '#fb7185',
+    bg: 'rgba(244,63,94,0.1)',
+    border: 'rgba(244,63,94,0.4)',
+    desc: 'On the very first night, bless one player with divine protection. If the Mafia targets them that night, they survive. After night 1, your power fades.',
+  },
+  spellcaster: {
+    emoji: '🌀',
+    label: 'Spellcaster',
+    color: '#a78bfa',
+    bg: 'rgba(139,92,246,0.12)',
+    border: 'rgba(139,92,246,0.4)',
+    desc: 'Each night, cast a silence spell on one player. They will be unable to speak or vote the following day. A powerful disruptor.',
+  },
+  amuletOfProtection: {
+    emoji: '🧿',
+    label: 'Amulet of Protection',
+    color: '#fbbf24',
+    bg: 'rgba(245,158,11,0.12)',
+    border: 'rgba(245,158,11,0.4)',
+    desc: 'Once per game, use the amulet to protect one player from a Mafia kill. After it is used, the amulet is spent and you become a simple Villager.',
+  },
+  beholder: {
+    emoji: '👁️',
+    label: 'Beholder',
+    color: '#22d3ee',
+    bg: 'rgba(6,182,212,0.12)',
+    border: 'rgba(6,182,212,0.4)',
+    desc: 'At the start of the game, you learn who the Seer is. No night action — your power is pure knowledge. Guard that secret with your life.',
+  },
+  toughGuy: {
+    emoji: '💪',
+    label: 'Tough Guy',
+    color: '#fb923c',
+    bg: 'rgba(234,88,12,0.12)',
+    border: 'rgba(234,88,12,0.4)',
+    desc: 'You can survive the first werewolf attack. If the Mafia kills you, you cling to life — but you will die the following night. No second chances.',
+  },
+  king: {
+    emoji: '🤴',
+    label: 'King',
+    color: '#facc15',
+    bg: 'rgba(234,179,8,0.12)',
+    border: 'rgba(234,179,8,0.4)',
+    desc: 'Your vote counts as two. Wield your influence wisely. And if you are eliminated — by vote or by night — you get a revenge shot, just like the Hunter.',
+  },
+  diseased: {
+    emoji: '🤢',
+    label: 'Diseased',
+    color: '#94a3b8',
+    bg: 'rgba(71,85,105,0.15)',
+    border: 'rgba(71,85,105,0.4)',
+    desc: "If the Mafia kills you, they are sickened — and cannot kill anyone the following night. Your death may be the village's greatest gift.",
+  },
+  cursed: {
+    emoji: '🩸',
+    label: 'Cursed',
+    color: '#f87171',
+    bg: 'rgba(185,28,28,0.12)',
+    border: 'rgba(185,28,28,0.4)',
+    desc: 'A dark curse marks you. If the Mafia targets you at night, instead of dying you silently turn Mafia. Play innocent — and hope they find you.',
+  },
+  pacifist: {
+    emoji: '🕊️',
+    label: 'Pacifist',
+    color: '#7dd3fc',
+    bg: 'rgba(56,189,248,0.1)',
+    border: 'rgba(56,189,248,0.35)',
+    desc: 'You refuse to vote for execution. Your vote button is hidden — you cannot take part in elimination votes. Debate freely, but never cast judgment.',
+  },
+  villageIdiot: {
+    emoji: '🤡',
+    label: 'Village Idiot',
+    color: '#a3e635',
+    bg: 'rgba(132,204,22,0.12)',
+    border: 'rgba(132,204,22,0.4)',
+    desc: "You're just a villager — but with a good excuse for acting strange. No powers, no secrets. Blend in, cause chaos, or just enjoy the ride.",
   },
 }
 
