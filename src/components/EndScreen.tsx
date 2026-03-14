@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Id } from '../../convex/_generated/dataModel'
 import PlayerAvatar from './PlayerAvatar'
 import { playVillageWins, playMafiaWins } from '../lib/sounds'
+import { analytics } from '../lib/analytics'
 
 type Player = {
   _id: Id<'players'>
@@ -66,7 +67,8 @@ export default function EndScreen({
   useEffect(() => {
     if (winner === 'mafia') playMafiaWins()
     else playVillageWins()
-  }, [winner])
+    analytics.gameEnded(winner, players.filter(p => !p.isSpectating).length)
+  }, [winner]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isMafiaWin = winner === 'mafia'
 

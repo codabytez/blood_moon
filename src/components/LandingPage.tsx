@@ -4,6 +4,7 @@ import { api } from '../../convex/_generated/api'
 import { GameState } from '../App'
 import { errMsg } from '../lib/errMsg'
 import { IconMoon, IconCrown, IconLogIn } from './Icons'
+import { analytics } from '../lib/analytics'
 
 type Props = {
   sessionId: string
@@ -66,6 +67,7 @@ export default function LandingPage({
     setError('')
     try {
       const result = await createGame({ hostName: name.trim(), sessionId })
+      analytics.gameCreated()
       onGameJoined({ gameId: result.gameId, playerId: result.playerId })
     } catch (err) {
       setError(errMsg(err))
@@ -85,6 +87,7 @@ export default function LandingPage({
         playerName: name.trim(),
         sessionId,
       })
+      analytics.playerJoined()
       onGameJoined({ gameId: result.gameId, playerId: result.playerId })
     } catch (err) {
       setError(errMsg(err))

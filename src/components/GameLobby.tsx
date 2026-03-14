@@ -6,6 +6,7 @@ import PlayerAvatar from './PlayerAvatar'
 import { IconCrown, IconEye, IconGamepad } from './Icons'
 import SettingsPanel from './SettingsPanel'
 import type { GameSettings } from '../../convex/_shared'
+import { analytics } from '../lib/analytics'
 
 function GearIcon() {
   return (
@@ -80,6 +81,7 @@ export default function GameLobby({
     setError('')
     try {
       await startGame({ gameId, sessionId })
+      analytics.gameStarted(playerCount)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start game.')
       setStarting(false)

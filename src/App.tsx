@@ -5,6 +5,7 @@ import LandingPage from './components/LandingPage'
 import GameBoard from './components/GameBoard'
 import RulesPage from './components/RulesPage'
 import { applyTheme, getClockTheme } from './lib/theme'
+import { analytics } from './lib/analytics'
 
 // ─── Types ────────────────────────────────────────────────
 export type GameState = {
@@ -66,7 +67,10 @@ export default function App() {
         <LandingPage
           sessionId={sessionId}
           onGameJoined={handleGameJoined}
-          onShowRules={() => setShowRules(true)}
+          onShowRules={() => {
+            setShowRules(true)
+            analytics.rulesViewed()
+          }}
         />
       )}
       {showRules && <RulesPage onClose={() => setShowRules(false)} />}

@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import './index.css'
 import App from './App.tsx'
+import { initAnalytics } from './lib/analytics'
+
+initAnalytics()
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string)
 
