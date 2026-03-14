@@ -1,6 +1,14 @@
 import { mutation, query } from './_generated/server'
 import { v, ConvexError } from 'convex/values'
 import { Id } from './_generated/dataModel'
+import {
+  NIGHT_MS,
+  DAY_MS,
+  formatRole,
+  getSettings,
+  doNightResolution,
+  doElimination,
+} from './_shared'
 
 type Role =
   | 'mafia'
@@ -74,6 +82,38 @@ function assignRoles(playerCount: number): Role[] {
   return roles
 }
 
+function assignRolesCustom(
+  playerCount: number,
+  customRoleKeys: string[]
+): Role[] {
+  const n = playerCount
+  const mafiaCount =
+    n >= 25 ? 6 : n >= 20 ? 5 : n >= 15 ? 4 : n >= 10 ? 3 : n >= 7 ? 2 : 1
+
+  // Expand 'mason' to two slots
+  const expanded: Role[] = []
+  for (const key of customRoleKeys) {
+    if (key === 'mason') {
+      expanded.push('mason', 'mason')
+    } else {
+      expanded.push(key as Role)
+    }
+  }
+
+  // Leave at least 1 villager slot
+  const maxSpecial = Math.max(0, n - mafiaCount - 1)
+  const selected = expanded.slice(0, maxSpecial)
+
+  const roles: Role[] = [...Array<Role>(mafiaCount).fill('mafia'), ...selected]
+  while (roles.length < n) roles.push('villager')
+
+  for (let i = roles.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[roles[i], roles[j]] = [roles[j], roles[i]]
+  }
+  return roles
+}
+
 export const create = mutation({
   args: { hostName: v.string(), sessionId: v.string() },
   handler: async (ctx, { hostName, sessionId }) => {
@@ -133,6 +173,9 @@ export const join = mutation({
       .query('players')
       .withIndex('by_game', q => q.eq('gameId', game._id))
       .collect()
+    if (playerName.trim().toUpperCase() === game.code) {
+      throw new ConvexError('Your name cannot be the game code.')
+    }
     if (
       allPlayers.some(p => p.name.toLowerCase() === playerName.toLowerCase())
     ) {
@@ -184,7 +227,11 @@ export const startGame = mutation({
       )
     }
 
-    const roles = assignRoles(activePlayers.length)
+    const game = await ctx.db.get(gameId)
+    const s = getSettings(game)
+    const roles = s.customRoles
+      ? assignRolesCustom(activePlayers.length, s.customRoles)
+      : assignRoles(activePlayers.length)
     for (let i = 0; i < activePlayers.length; i++) {
       await ctx.db.patch(activePlayers[i]._id, { role: roles[i] })
     }
@@ -201,10 +248,14 @@ export const startGame = mutation({
       }
     }
 
-    await ctx.db.patch(gameId, { phase: 'night' })
+    await ctx.db.patch(gameId, {
+      phase: 'night',
+      phaseDeadline: Date.now() + NIGHT_MS,
+    })
   },
 })
 
+/** Host-only manual advance to day. Validates required actions are submitted. */
 export const advanceToDay = mutation({
   args: { gameId: v.id('games'), sessionId: v.string() },
   handler: async (ctx, { gameId, sessionId }) => {
@@ -221,207 +272,63 @@ export const advanceToDay = mutation({
     if (!game || game.phase !== 'night')
       throw new ConvexError('Not in night phase.')
 
+    await doNightResolution(ctx.db, gameId, false)
+  },
+})
+
+/**
+ * Auto-advance to day when timer expires. Callable by any player.
+ * Auto-submits a random mafia kill if mafia hasn't acted.
+ */
+export const autoAdvanceToDay = mutation({
+  args: { gameId: v.id('games'), sessionId: v.string() },
+  handler: async (ctx, { gameId, sessionId }) => {
+    const caller = await ctx.db
+      .query('players')
+      .withIndex('by_game_session', q =>
+        q.eq('gameId', gameId).eq('sessionId', sessionId)
+      )
+      .first()
+    if (!caller) return
+
+    const game = await ctx.db.get(gameId)
+    if (!game || game.phase !== 'night') return
+    if (!game.phaseDeadline || Date.now() < game.phaseDeadline) return
+
     const players = await ctx.db
       .query('players')
       .withIndex('by_game', q => q.eq('gameId', gameId))
       .collect()
 
-    // ── Step 0: ToughGuy scheduled death ─────────────────────────
-    const scheduledDeath = players.find(
-      p => p.isAlive && p.toughGuyScheduledDeath
-    )
-    if (scheduledDeath) {
-      await ctx.db.patch(scheduledDeath._id, {
-        isAlive: false,
-        toughGuyScheduledDeath: false,
-      })
-      // Check apprenticeSeer promo if tough guy happened to be seer (edge case)
-      if (scheduledDeath.role === 'seer') {
-        const apprentice = players.find(
-          p => p.isAlive && p.role === 'apprenticeSeer'
-        )
-        if (apprentice) await ctx.db.patch(apprentice._id, { role: 'seer' })
-      }
-    }
-
-    // ── Step 1: Required action validation ───────────────────────
     const aliveMafia = players.filter(p => p.isAlive && p.role === 'mafia')
-    const aliveSeer = players.find(p => p.isAlive && p.role === 'seer')
-    const aliveDoctor = players.find(p => p.isAlive && p.role === 'doctor')
-
     const actions = await ctx.db
       .query('nightActions')
       .withIndex('by_game_round', q =>
         q.eq('gameId', gameId).eq('round', game.round)
       )
       .collect()
-
-    const killAction = actions.find(a => a.actionType === 'kill')
-    const seerAction = actions.find(a => a.actionType === 'investigate')
-    const doctorAction = actions.find(
-      a => a.actionType === 'save' || a.actionType === 'protect'
+    const killAction = actions.find(
+      (a: { actionType: string }) => a.actionType === 'kill'
     )
 
-    const missing: string[] = []
-    if (aliveMafia.length > 0 && !killAction) missing.push('Mafia (kill)')
-    if (aliveSeer && !seerAction) missing.push('Seer (investigate)')
-    if (aliveDoctor && !doctorAction) missing.push('Doctor (protect)')
-
-    if (missing.length > 0) {
-      throw new ConvexError(`Waiting for: ${missing.join(', ')}`)
-    }
-
-    // ── Step 2: Collect all saves/protects ───────────────────────
-    const saveActions = actions.filter(
-      a => a.actionType === 'save' || a.actionType === 'protect'
-    )
-
-    // Determine which targets are saved
-    const savedTargetIds = new Set<string>()
-    for (const action of saveActions) {
-      const actor = players.find(p => p._id === action.actorId)
-      if (!actor) continue
-
-      if (actor.role === 'doctor') {
-        savedTargetIds.add(action.targetId)
-      } else if (actor.role === 'bodyguard') {
-        // Cannot protect same target as last night
-        if (
-          actor.bodyguardLastTargetId &&
-          actor.bodyguardLastTargetId === action.targetId
-        ) {
-          // Invalid — skip (client should have prevented this)
-        } else {
-          savedTargetIds.add(action.targetId)
-          await ctx.db.patch(actor._id, {
-            bodyguardLastTargetId: action.targetId,
-          })
-        }
-      } else if (actor.role === 'priest') {
-        // Priest only protects on round 1
-        if (game.round === 1) savedTargetIds.add(action.targetId)
-      } else if (actor.role === 'amuletOfProtection') {
-        if (!actor.amuletUsed) {
-          savedTargetIds.add(action.targetId)
-          await ctx.db.patch(actor._id, { amuletUsed: true })
-        }
-      }
-    }
-
-    // ── Step 3: Kill resolution ───────────────────────────────────
-    let announcement: string
-    let revengeKillerId: Id<'players'> | null = null
-
-    // skipNextNightKill check (from Diseased death last round)
-    if (game.skipNextNightKill) {
-      await ctx.db.patch(gameId, { skipNextNightKill: false })
-      announcement = `☀️ The Diseased's curse lingers — the Mafia could not strike tonight. Everyone survived!`
-    } else if (killAction) {
-      const target = players.find(p => p._id === killAction.targetId)
-      const isSaved = savedTargetIds.has(killAction.targetId)
-
-      if (isSaved || !target) {
-        announcement = `☀️ A quiet dawn — everyone survived. Someone was protected! 🛡️`
-      } else {
-        // Special passive effects before marking dead
-        if (target.role === 'toughGuy' && !target.toughGuyHit) {
-          // Survives — will die next night
-          await ctx.db.patch(target._id, {
-            toughGuyHit: true,
-            toughGuyScheduledDeath: true,
-          })
-          announcement = `☀️ A peaceful dawn... though dark forces stirred in the night. 🌙`
-        } else if (target.role === 'cursed') {
-          // Becomes Mafia instead of dying
-          await ctx.db.patch(target._id, { role: 'mafia' })
-          announcement = `☀️ A mysterious night passes. The village senses a dark change... 🌑`
-        } else {
-          // Normal death
-          await ctx.db.patch(target._id, { isAlive: false })
-
-          if (target.role === 'diseased') {
-            await ctx.db.patch(gameId, { skipNextNightKill: true })
-          }
-
-          // Promote apprenticeSeer if seer killed
-          if (target.role === 'seer') {
-            const apprentice = players.find(
-              p => p.isAlive && p.role === 'apprenticeSeer'
-            )
-            if (apprentice) await ctx.db.patch(apprentice._id, { role: 'seer' })
-          }
-
-          if (target.role === 'hunter' || target.role === 'king') {
-            revengeKillerId = target._id
-          }
-
-          announcement = `☀️ The village woke to find ${target.name} dead. 💀`
-        }
-      }
-    } else {
-      announcement = `☀️ A peaceful night. Everyone woke up safe. 🌙`
-    }
-
-    // ── Step 4: Spellcaster silence ───────────────────────────────
-    // Clear previous silences first
-    for (const p of players) {
-      if (p.silenced) await ctx.db.patch(p._id, { silenced: false })
-    }
-    const silenceAction = actions.find(a => a.actionType === 'silence')
-    if (silenceAction) {
-      await ctx.db.patch(silenceAction.targetId, { silenced: true })
-    }
-
-    // ── Step 5: Player Inspector results ─────────────────────────
-    const inspectActions = actions.filter(a => a.actionType === 'inspect')
-    for (const action of inspectActions) {
-      const target = players.find(p => p._id === action.targetId)
-      if (target) {
-        const suspicious = target.role === 'mafia' || target.role === 'lycan'
-        await ctx.db.patch(action.actorId, {
-          piResult: suspicious ? 'Suspicious 🔴' : 'Clear 🟢',
+    // Auto-submit random mafia kill if missing
+    if (aliveMafia.length > 0 && !killAction) {
+      const targets = players.filter(
+        p => p.isAlive && p.role !== 'mafia' && !p.isSpectating
+      )
+      if (targets.length > 0) {
+        const target = targets[Math.floor(Math.random() * targets.length)]
+        await ctx.db.insert('nightActions', {
+          gameId,
+          round: game.round,
+          actorId: aliveMafia[0]._id,
+          targetId: target._id,
+          actionType: 'kill',
         })
       }
     }
 
-    // ── Step 6: Fortune Teller results ───────────────────────────
-    const ftActions = actions.filter(a => a.actionType === 'investigate_ft')
-    for (const action of ftActions) {
-      const target = players.find(p => p._id === action.targetId)
-      if (target?.role) {
-        await ctx.db.patch(action.actorId, {
-          ftResult: `${target.name} is ${target.role}`,
-        })
-      }
-    }
-
-    // ── Step 7: Seer investigation ───────────────────────────────
-    if (seerAction) {
-      const target = players.find(p => p._id === seerAction.targetId)
-      if (target) {
-        const isMalicious = target.role === 'mafia' || target.role === 'lycan'
-        const result = isMalicious ? 'Mafia 😈' : 'Innocent 😇'
-        await ctx.db.patch(seerAction.actorId, {
-          seerResult: `${target.name} is ${result}`,
-        })
-      }
-    }
-
-    // ── Step 8: Advance phase or trigger revenge ──────────────────
-    if (revengeKillerId) {
-      await ctx.db.patch(gameId, {
-        phase: 'hunterRevenge',
-        pendingHunterId: revengeKillerId,
-        hunterReturnPhase: 'day',
-        nightAnnouncement: announcement,
-      })
-      return
-    }
-
-    await ctx.db.patch(gameId, {
-      phase: 'day',
-      nightAnnouncement: announcement,
-    })
+    await doNightResolution(ctx.db, gameId, true)
   },
 })
 
@@ -441,10 +348,31 @@ export const advanceToVoting = mutation({
     if (!game || game.phase !== 'day')
       throw new ConvexError('Not in day phase.')
 
-    await ctx.db.patch(gameId, { phase: 'voting' })
+    await ctx.db.patch(gameId, { phase: 'voting', phaseDeadline: undefined })
   },
 })
 
+/** Auto-advance day → voting when day timer expires. Callable by any player. */
+export const autoAdvanceToVoting = mutation({
+  args: { gameId: v.id('games'), sessionId: v.string() },
+  handler: async (ctx, { gameId, sessionId }) => {
+    const caller = await ctx.db
+      .query('players')
+      .withIndex('by_game_session', q =>
+        q.eq('gameId', gameId).eq('sessionId', sessionId)
+      )
+      .first()
+    if (!caller) return
+
+    const game = await ctx.db.get(gameId)
+    if (!game || game.phase !== 'day') return
+    if (!game.phaseDeadline || Date.now() < game.phaseDeadline) return
+
+    await ctx.db.patch(gameId, { phase: 'voting', phaseDeadline: undefined })
+  },
+})
+
+/** Host-only manual elimination processing. */
 export const processElimination = mutation({
   args: { gameId: v.id('games'), sessionId: v.string() },
   handler: async (ctx, { gameId, sessionId }) => {
@@ -461,134 +389,46 @@ export const processElimination = mutation({
     if (!game || game.phase !== 'voting')
       throw new ConvexError('Not in voting phase.')
 
-    const votesList = await ctx.db
-      .query('votes')
-      .withIndex('by_game_round', q =>
-        q.eq('gameId', gameId).eq('round', game.round)
+    await doElimination(ctx.db, gameId)
+  },
+})
+
+/** Auto-process elimination once all eligible voters have voted. Callable by any player. */
+export const autoProcessElimination = mutation({
+  args: { gameId: v.id('games'), sessionId: v.string() },
+  handler: async (ctx, { gameId, sessionId }) => {
+    const caller = await ctx.db
+      .query('players')
+      .withIndex('by_game_session', q =>
+        q.eq('gameId', gameId).eq('sessionId', sessionId)
       )
-      .collect()
+      .first()
+    if (!caller) return
+
+    const game = await ctx.db.get(gameId)
+    if (!game || game.phase !== 'voting') return
 
     const players = await ctx.db
       .query('players')
       .withIndex('by_game', q => q.eq('gameId', gameId))
       .collect()
 
-    // King's vote counts as 2; silenced players' votes are discarded
-    const voteCounts: Record<string, number> = {}
-    for (const vote of votesList) {
-      const voter = players.find(p => p._id === vote.voterId)
-      if (!voter) continue
-      if (voter.silenced) continue // silenced players cannot vote
+    const eligibleVoters = players.filter(
+      p => p.isAlive && !p.isSpectating && p.role !== 'pacifist' && !p.silenced
+    )
 
-      const weight = voter.role === 'king' ? 2 : 1
-      const key = vote.targetId as string
-      voteCounts[key] = (voteCounts[key] ?? 0) + weight
-    }
-
-    // Clear silenced status after voting resolves
-    for (const p of players) {
-      if (p.silenced) await ctx.db.patch(p._id, { silenced: false })
-    }
-
-    let eliminationAnnouncement = ''
-
-    if (Object.keys(voteCounts).length === 0) {
-      eliminationAnnouncement = `🎲 No votes were cast. The night approaches once more...`
-    } else {
-      const maxVotes = Math.max(...Object.values(voteCounts))
-      const topTargets = Object.entries(voteCounts).filter(
-        ([, count]) => count === maxVotes
+    const votes = await ctx.db
+      .query('votes')
+      .withIndex('by_game_round', q =>
+        q.eq('gameId', gameId).eq('round', game.round)
       )
-      if (topTargets.length > 1) {
-        eliminationAnnouncement = `🎲 It's a tie! No one was eliminated. The mystery continues...`
-      } else {
-        const eliminatedId = topTargets[0][0] as Id<'players'>
-        const eliminated = players.find(p => p._id === eliminatedId)
-        if (eliminated) {
-          // Prince is immune to day vote
-          if (eliminated.role === 'prince') {
-            await ctx.db.patch(gameId, {
-              phase: 'night',
-              round: game.round + 1,
-              eliminationAnnouncement: `👑 ${eliminated.name} was voted out, but they are the Prince — immune to elimination! The night falls...`,
-              nightAnnouncement: undefined,
-            })
-            return
-          }
+      .collect()
 
-          await ctx.db.patch(eliminatedId, { isAlive: false })
+    // Only auto-process if all eligible voters have cast their vote
+    if (eligibleVoters.length === 0 || votes.length < eligibleVoters.length)
+      return
 
-          // Promote apprenticeSeer if seer was eliminated
-          if (eliminated.role === 'seer') {
-            const apprentice = players.find(
-              p => p.isAlive && p.role === 'apprenticeSeer'
-            )
-            if (apprentice) await ctx.db.patch(apprentice._id, { role: 'seer' })
-          }
-
-          const roleLabel =
-            eliminated.role === 'mafia'
-              ? 'MAFIA 😈'
-              : `a ${eliminated.role?.toUpperCase()} 😇`
-          eliminationAnnouncement = `⚰️ The village has spoken. ${eliminated.name} has been eliminated — they were ${roleLabel}!`
-
-          // Hunter or King revenge — check win first
-          if (eliminated.role === 'hunter' || eliminated.role === 'king') {
-            const alive = players.filter(p => p.isAlive && !p.isSpectating)
-            const aliveMafia = alive.filter(p => p.role === 'mafia')
-            const aliveVillagers = alive.filter(p => p.role !== 'mafia')
-
-            if (aliveMafia.length === 0) {
-              await ctx.db.patch(gameId, {
-                phase: 'ended',
-                winner: 'villagers',
-                eliminationAnnouncement,
-              })
-            } else if (aliveMafia.length >= aliveVillagers.length) {
-              await ctx.db.patch(gameId, {
-                phase: 'ended',
-                winner: 'mafia',
-                eliminationAnnouncement,
-              })
-            } else {
-              await ctx.db.patch(gameId, {
-                phase: 'hunterRevenge',
-                pendingHunterId: eliminatedId,
-                hunterReturnPhase: 'night',
-                eliminationAnnouncement,
-              })
-            }
-            return
-          }
-        }
-      }
-    }
-
-    // ── Win condition check ────────────────────────────────────────
-    const alive = players.filter(p => p.isAlive && !p.isSpectating)
-    const aliveMafia = alive.filter(p => p.role === 'mafia')
-    const aliveVillagers = alive.filter(p => p.role !== 'mafia')
-
-    if (aliveMafia.length === 0) {
-      await ctx.db.patch(gameId, {
-        phase: 'ended',
-        winner: 'villagers',
-        eliminationAnnouncement,
-      })
-    } else if (aliveMafia.length >= aliveVillagers.length) {
-      await ctx.db.patch(gameId, {
-        phase: 'ended',
-        winner: 'mafia',
-        eliminationAnnouncement,
-      })
-    } else {
-      await ctx.db.patch(gameId, {
-        phase: 'night',
-        round: game.round + 1,
-        eliminationAnnouncement,
-        nightAnnouncement: undefined,
-      })
-    }
+    await doElimination(ctx.db, gameId)
   },
 })
 
@@ -633,9 +473,12 @@ export const submitHunterKill = mutation({
     }
 
     const isKing = hunter.role === 'king'
+    const targetRoleLabel = formatRole(target.role)
+    const targetIsMafia = target.role === 'mafia'
+    const targetRoleStr = targetIsMafia ? 'Mafia 😈' : targetRoleLabel + ' 😇'
     const revengeMsg = isKing
-      ? `👑 The King's final decree: ${hunter.name} takes ${target.name} down with them!`
-      : `💀 ${hunter.name} took ${target.name} down with them!`
+      ? `👑 The King's final decree: ${hunter.name} condemned ${target.name} (${targetRoleStr})!`
+      : `💀 ${hunter.name}'s last shot took down ${target.name} (${targetRoleStr})!`
 
     const prevNight = game.nightAnnouncement ?? ''
     const prevElim = game.eliminationAnnouncement ?? ''
@@ -656,6 +499,7 @@ export const submitHunterKill = mutation({
         winner: 'villagers',
         pendingHunterId: undefined,
         hunterReturnPhase: undefined,
+        phaseDeadline: undefined,
         ...(returnPhase === 'day'
           ? { nightAnnouncement: `${prevNight} ${revengeMsg}`.trim() }
           : { eliminationAnnouncement: `${prevElim} ${revengeMsg}`.trim() }),
@@ -666,6 +510,7 @@ export const submitHunterKill = mutation({
         winner: 'mafia',
         pendingHunterId: undefined,
         hunterReturnPhase: undefined,
+        phaseDeadline: undefined,
         ...(returnPhase === 'day'
           ? { nightAnnouncement: `${prevNight} ${revengeMsg}`.trim() }
           : { eliminationAnnouncement: `${prevElim} ${revengeMsg}`.trim() }),
@@ -676,6 +521,7 @@ export const submitHunterKill = mutation({
         pendingHunterId: undefined,
         hunterReturnPhase: undefined,
         nightAnnouncement: `${prevNight} ${revengeMsg}`.trim(),
+        phaseDeadline: Date.now() + DAY_MS,
       })
     } else {
       await ctx.db.patch(gameId, {
@@ -685,6 +531,73 @@ export const submitHunterKill = mutation({
         hunterReturnPhase: undefined,
         eliminationAnnouncement: `${prevElim} ${revengeMsg}`.trim(),
         nightAnnouncement: undefined,
+        phaseDeadline: Date.now() + NIGHT_MS,
+      })
+    }
+  },
+})
+
+/** Auto-skip hunter revenge when timer expires. Callable by any player. */
+export const autoSkipHunterRevenge = mutation({
+  args: { gameId: v.id('games'), sessionId: v.string() },
+  handler: async (ctx, { gameId, sessionId }) => {
+    const caller = await ctx.db
+      .query('players')
+      .withIndex('by_game_session', q =>
+        q.eq('gameId', gameId).eq('sessionId', sessionId)
+      )
+      .first()
+    if (!caller) return
+
+    const game = await ctx.db.get(gameId)
+    if (!game || game.phase !== 'hunterRevenge') return
+    if (!game.phaseDeadline || Date.now() < game.phaseDeadline) return
+
+    const allPlayers = await ctx.db
+      .query('players')
+      .withIndex('by_game', q => q.eq('gameId', gameId))
+      .collect()
+    const alive = allPlayers.filter(p => p.isAlive && !p.isSpectating)
+    const aliveMafia = alive.filter(p => p.role === 'mafia')
+    const aliveVillagers = alive.filter(p => p.role !== 'mafia')
+
+    const returnPhase = game.hunterReturnPhase ?? 'day'
+    const prevNight = game.nightAnnouncement ?? ''
+    const prevElim = game.eliminationAnnouncement ?? ''
+
+    if (aliveMafia.length === 0) {
+      await ctx.db.patch(gameId, {
+        phase: 'ended',
+        winner: 'villagers',
+        pendingHunterId: undefined,
+        hunterReturnPhase: undefined,
+        phaseDeadline: undefined,
+      })
+    } else if (aliveMafia.length >= aliveVillagers.length) {
+      await ctx.db.patch(gameId, {
+        phase: 'ended',
+        winner: 'mafia',
+        pendingHunterId: undefined,
+        hunterReturnPhase: undefined,
+        phaseDeadline: undefined,
+      })
+    } else if (returnPhase === 'day') {
+      await ctx.db.patch(gameId, {
+        phase: 'day',
+        pendingHunterId: undefined,
+        hunterReturnPhase: undefined,
+        nightAnnouncement: prevNight,
+        phaseDeadline: Date.now() + DAY_MS,
+      })
+    } else {
+      await ctx.db.patch(gameId, {
+        phase: 'night',
+        round: game.round + 1,
+        pendingHunterId: undefined,
+        hunterReturnPhase: undefined,
+        eliminationAnnouncement: prevElim,
+        nightAnnouncement: undefined,
+        phaseDeadline: Date.now() + NIGHT_MS,
       })
     }
   },
@@ -759,7 +672,89 @@ export const resetGame = mutation({
       pendingHunterId: undefined,
       hunterReturnPhase: undefined,
       skipNextNightKill: undefined,
+      phaseDeadline: undefined,
     })
+  },
+})
+
+export const cancelGame = mutation({
+  args: { gameId: v.id('games'), sessionId: v.string() },
+  handler: async (ctx, { gameId, sessionId }) => {
+    const host = await ctx.db
+      .query('players')
+      .withIndex('by_game_session', q =>
+        q.eq('gameId', gameId).eq('sessionId', sessionId)
+      )
+      .first()
+    if (!host?.isHost)
+      throw new ConvexError('Only the host can cancel the room.')
+
+    await ctx.db.patch(gameId, { phase: 'canceled', phaseDeadline: undefined })
+  },
+})
+
+export const updateSettings = mutation({
+  args: {
+    gameId: v.id('games'),
+    sessionId: v.string(),
+    settings: v.object({
+      nightSeconds: v.optional(v.number()),
+      daySeconds: v.optional(v.number()),
+      hunterSeconds: v.optional(v.number()),
+      revealRoleOnDeath: v.optional(v.boolean()),
+      customRoles: v.optional(v.array(v.string())),
+      skipRoleReveal: v.optional(v.boolean()),
+      deadCanChat: v.optional(v.boolean()),
+      mafiaSeesTeam: v.optional(v.boolean()),
+      timerVisibleToAll: v.optional(v.boolean()),
+    }),
+  },
+  handler: async (ctx, { gameId, sessionId, settings }) => {
+    const host = await ctx.db
+      .query('players')
+      .withIndex('by_game_session', q =>
+        q.eq('gameId', gameId).eq('sessionId', sessionId)
+      )
+      .first()
+    if (!host?.isHost)
+      throw new ConvexError('Only the host can change settings.')
+
+    const game = await ctx.db.get(gameId)
+    if (!game || game.phase !== 'lobby')
+      throw new ConvexError('Settings can only be changed in the lobby.')
+
+    const current = game.settings ?? {}
+    await ctx.db.patch(gameId, { settings: { ...current, ...settings } })
+  },
+})
+
+export const removePlayer = mutation({
+  args: {
+    gameId: v.id('games'),
+    sessionId: v.string(),
+    targetPlayerId: v.id('players'),
+  },
+  handler: async (ctx, { gameId, sessionId, targetPlayerId }) => {
+    const host = await ctx.db
+      .query('players')
+      .withIndex('by_game_session', q =>
+        q.eq('gameId', gameId).eq('sessionId', sessionId)
+      )
+      .first()
+    if (!host?.isHost)
+      throw new ConvexError('Only the host can remove players.')
+
+    const game = await ctx.db.get(gameId)
+    if (!game) throw new ConvexError('Game not found.')
+    if (game.phase === 'ended' || game.phase === 'canceled')
+      throw new ConvexError('Cannot remove players from a finished game.')
+
+    const target = await ctx.db.get(targetPlayerId)
+    if (!target || target.gameId !== gameId)
+      throw new ConvexError('Player not found in this game.')
+    if (target.isHost) throw new ConvexError('Cannot remove the host.')
+
+    await ctx.db.delete(targetPlayerId)
   },
 })
 

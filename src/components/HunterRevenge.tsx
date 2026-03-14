@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { Id } from '../../convex/_generated/dataModel'
 import { errMsg } from '../lib/errMsg'
 import PlayerAvatar from './PlayerAvatar'
 import { IconMoon, IconSkull } from './Icons'
+import Countdown from './Countdown'
 
 type Player = {
   _id: Id<'players'>
@@ -24,6 +25,7 @@ type Props = {
   isGM: boolean
   nightAnnouncement?: string
   eliminationAnnouncement?: string
+  phaseDeadline?: number
 }
 
 export default function HunterRevenge({
@@ -34,6 +36,7 @@ export default function HunterRevenge({
   isGM,
   nightAnnouncement,
   eliminationAnnouncement,
+  phaseDeadline,
 }: Props) {
   const [selectedTarget, setSelectedTarget] = useState<Id<'players'> | null>(
     null
@@ -42,6 +45,18 @@ export default function HunterRevenge({
   const [error, setError] = useState('')
 
   const submitHunterKill = useMutation(api.games.submitHunterKill)
+  const autoSkipHunterRevenge = useMutation(api.games.autoSkipHunterRevenge)
+  const calledAutoRef = useRef(false)
+
+  async function handleTimerExpire() {
+    if (calledAutoRef.current) return
+    calledAutoRef.current = true
+    try {
+      await autoSkipHunterRevenge({ gameId, sessionId })
+    } catch {
+      calledAutoRef.current = false
+    }
+  }
 
   const me = players.find(p => p.isMe)
   const isHunter = me?._id === pendingHunterId
@@ -117,6 +132,19 @@ export default function HunterRevenge({
             ? `${hunter?.name} falls — but decrees one final judgement...`
             : `${hunter?.name} rises from the grave for one final strike...`}
         </p>
+        {phaseDeadline && (
+          <div style={{ marginTop: 8 }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>
+              Auto-skip in{' '}
+            </span>
+            <Countdown
+              deadline={phaseDeadline}
+              onExpire={() => {
+                void handleTimerExpire()
+              }}
+            />
+          </div>
+        )}
       </div>
 
       <div style={{ width: '100%', maxWidth: 520 }}>

@@ -4,6 +4,7 @@ import { api } from '../../convex/_generated/api'
 import { Id } from '../../convex/_generated/dataModel'
 import PlayerAvatar from './PlayerAvatar'
 import { IconSun, IconSkull, IconChat, IconEye } from './Icons'
+import Countdown from './Countdown'
 
 type Player = {
   _id: Id<'players'>
@@ -29,6 +30,9 @@ type Props = {
   isAlive: boolean
   nightAnnouncement?: string
   myRole: string
+  phaseDeadline?: number
+  timerVisibleToAll?: boolean
+  deadCanChat?: boolean
   onAdvanceToVoting: () => void
 }
 
@@ -41,11 +45,19 @@ export default function DayPhase({
   isGM,
   nightAnnouncement,
   myRole,
+  phaseDeadline,
+  timerVisibleToAll,
+  deadCanChat,
   onAdvanceToVoting,
 }: Props) {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [advancing, setAdvancing] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<{
+    id: Id<'messages'>
+    name: string
+    content: string
+  } | null>(null)
   const [mafiaMessage, setMafiaMessage] = useState('')
   const [sendingMafia, setSendingMafia] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -55,6 +67,18 @@ export default function DayPhase({
   const messages = useQuery(api.messages.list, { gameId, round })
   const sendMafiaMsg = useMutation(api.mafiaMessages.send)
   const mafiaMessages = useQuery(api.mafiaMessages.list, { gameId, sessionId })
+  const autoAdvanceToVoting = useMutation(api.games.autoAdvanceToVoting)
+  const calledAutoRef = useRef(false)
+
+  async function handleTimerExpire() {
+    if (calledAutoRef.current) return
+    calledAutoRef.current = true
+    try {
+      await autoAdvanceToVoting({ gameId, sessionId })
+    } catch {
+      calledAutoRef.current = false
+    }
+  }
 
   const canSeeMafiaChat = myRole === 'mafia' || isGM
 
@@ -72,11 +96,17 @@ export default function DayPhase({
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault()
-    if (!message.trim() || !me?.isAlive) return
+    if (!message.trim() || (!me?.isAlive && !deadCanChat)) return
     setSending(true)
     try {
-      await sendMessage({ gameId, content: message.trim(), sessionId })
+      await sendMessage({
+        gameId,
+        content: message.trim(),
+        sessionId,
+        replyToId: replyingTo?.id,
+      })
       setMessage('')
+      setReplyingTo(null)
     } catch {
       // ignore
     } finally {
@@ -156,6 +186,28 @@ export default function DayPhase({
             <IconSun size={28} color="var(--accent)" />
             Dawn Breaks
           </h1>
+          {phaseDeadline && (isHost || (timerVisibleToAll ?? true)) && (
+            <div style={{ marginTop: 8 }}>
+              <Countdown
+                deadline={phaseDeadline}
+                onExpire={() => {
+                  void handleTimerExpire()
+                }}
+              />
+              {isHost && !(timerVisibleToAll ?? true) && (
+                <p
+                  style={{
+                    margin: '2px 0 0',
+                    fontSize: '0.65rem',
+                    color: 'var(--text3)',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  (visible to host only)
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Night announcement */}
@@ -478,72 +530,211 @@ export default function DayPhase({
                 No messages yet. Start the debate!
               </p>
             ) : (
-              messages.map(msg => (
-                <div
-                  key={msg._id}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignSelf:
-                      msg.playerId === players.find(p => p.isMe)?._id
-                        ? 'flex-end'
-                        : 'flex-start',
-                    maxWidth: '80%',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: '0.7rem',
-                      color: 'var(--text3)',
-                      marginBottom: 2,
-                      paddingLeft: 4,
-                    }}
-                  >
-                    {msg.playerName}
-                  </span>
+              messages.map(msg => {
+                const isMyMsg = msg.playerId === players.find(p => p.isMe)?._id
+                const canReply =
+                  (me?.isAlive || deadCanChat) && !isGM && !isSilenced
+                return (
                   <div
+                    key={msg._id}
                     style={{
-                      padding: '8px 12px',
-                      borderRadius: 10,
-                      background:
-                        msg.playerId === players.find(p => p.isMe)?._id
-                          ? 'var(--accent)'
-                          : 'var(--surface-solid)',
-                      color:
-                        msg.playerId === players.find(p => p.isMe)?._id
-                          ? '#fff'
-                          : 'var(--text)',
-                      fontSize: '0.88rem',
-                      border: `1px solid var(--border)`,
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      gap: 4,
+                      alignSelf: isMyMsg ? 'flex-end' : 'flex-start',
+                      maxWidth: '85%',
+                      flexDirection: isMyMsg ? 'row-reverse' : 'row',
                     }}
                   >
-                    {msg.content}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: isMyMsg ? 'flex-end' : 'flex-start',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.7rem',
+                          color: 'var(--text3)',
+                          marginBottom: 2,
+                          paddingLeft: 4,
+                        }}
+                      >
+                        {msg.playerName}
+                      </span>
+                      <div
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: 10,
+                          background: isMyMsg
+                            ? 'var(--accent)'
+                            : 'var(--surface-solid)',
+                          color: isMyMsg ? '#fff' : 'var(--text)',
+                          fontSize: '0.88rem',
+                          border: `1px solid var(--border)`,
+                          position: 'relative',
+                        }}
+                      >
+                        {msg.replyToContent && (
+                          <div
+                            style={{
+                              borderLeft: isMyMsg
+                                ? '2px solid rgba(255,255,255,0.35)'
+                                : '2px solid rgba(100,100,140,0.5)',
+                              paddingLeft: 8,
+                              marginBottom: 6,
+                              opacity: 0.75,
+                            }}
+                          >
+                            <p
+                              style={{
+                                margin: '0 0 2px',
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                              }}
+                            >
+                              {msg.replyToName}
+                            </p>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: '0.75rem',
+                                lineHeight: 1.3,
+                                wordBreak: 'break-word',
+                              }}
+                            >
+                              {msg.replyToContent}
+                            </p>
+                          </div>
+                        )}
+                        {msg.content}
+                      </div>
+                    </div>
+                    {canReply && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setReplyingTo({
+                            id: msg._id,
+                            name: msg.playerName,
+                            content: msg.content,
+                          })
+                        }
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text3)',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          padding: '2px 4px',
+                          flexShrink: 0,
+                          opacity: 0.6,
+                          lineHeight: 1,
+                        }}
+                        title="Reply"
+                      >
+                        ↩
+                      </button>
+                    )}
                   </div>
-                </div>
-              ))
+                )
+              })
             )}
             <div ref={chatEndRef} />
           </div>
 
-          {me?.isAlive && !isGM && !isSilenced ? (
-            <form onSubmit={handleSend} style={{ display: 'flex', gap: 8 }}>
-              <input
-                className="input"
-                style={{ flex: 1 }}
-                placeholder="Speak your mind..."
-                value={message}
-                onChange={e => setMessage(e.target.value)}
-                maxLength={500}
-              />
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={!message.trim() || sending}
-                style={{ whiteSpace: 'nowrap' }}
-              >
-                Send
-              </button>
-            </form>
+          {(me?.isAlive || deadCanChat) && !isGM && !isSilenced ? (
+            <>
+              {deadCanChat && !me?.isAlive && (
+                <p
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'rgba(156,163,175,0.8)',
+                    textAlign: 'center',
+                    margin: '0 0 8px',
+                    padding: '4px 8px',
+                    background: 'rgba(100,100,120,0.15)',
+                    borderRadius: 6,
+                    border: '1px solid rgba(100,100,120,0.25)',
+                  }}
+                >
+                  👻 Dead Chat — your messages are visible to all
+                </p>
+              )}
+              {replyingTo && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '6px 10px',
+                    background: 'rgba(100,100,120,0.18)',
+                    borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    marginBottom: 6,
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: '0.7rem',
+                        color: 'var(--accent)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      ↩ Replying to {replyingTo.name}
+                    </p>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: '0.75rem',
+                        color: 'var(--text3)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {replyingTo.content}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReplyingTo(null)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text3)',
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      padding: 0,
+                      flexShrink: 0,
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              <form onSubmit={handleSend} style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="input"
+                  style={{ flex: 1 }}
+                  placeholder="Speak your mind..."
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  maxLength={500}
+                />
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={!message.trim() || sending}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  Send
+                </button>
+              </form>
+            </>
           ) : (
             <p
               style={{
@@ -567,6 +758,11 @@ export default function DayPhase({
                 <>
                   <span style={{ fontSize: 13 }}>🌀</span> The Spellcaster has
                   silenced you.
+                </>
+              ) : !me?.isAlive && !deadCanChat ? (
+                <>
+                  <IconSkull size={13} color="var(--text3)" /> The dead cannot
+                  speak.
                 </>
               ) : (
                 <>

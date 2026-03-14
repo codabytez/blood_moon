@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as _shared from '../_shared.js'
 import type * as games from '../games.js'
 import type * as mafiaMessages from '../mafiaMessages.js'
 import type * as messages from '../messages.js'
@@ -22,6 +23,7 @@ import type {
 } from 'convex/server'
 
 declare const fullApi: ApiFromModules<{
+  _shared: typeof _shared
   games: typeof games
   mafiaMessages: typeof mafiaMessages
   messages: typeof messages

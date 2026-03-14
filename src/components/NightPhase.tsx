@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useMutation, useQuery } from 'convex/react'
+import Countdown from './Countdown'
 import { api } from '../../convex/_generated/api'
 import { Id } from '../../convex/_generated/dataModel'
 import { errMsg } from '../lib/errMsg'
@@ -59,6 +60,8 @@ type Props = {
   isGM: boolean
   eliminationAnnouncement?: string
   nightActionStatus: ActionStatus
+  phaseDeadline?: number
+  timerVisibleToAll?: boolean
   onAdvanceToDay: () => Promise<void>
 }
 
@@ -212,6 +215,8 @@ export default function NightPhase({
   isGM,
   eliminationAnnouncement,
   nightActionStatus,
+  phaseDeadline,
+  timerVisibleToAll,
   onAdvanceToDay,
 }: Props) {
   const [selectedTarget, setSelectedTarget] = useState<Id<'players'> | null>(
@@ -229,6 +234,18 @@ export default function NightPhase({
   const submitAction = useMutation(api.nightActions.submit)
   const sendMafiaMsg = useMutation(api.mafiaMessages.send)
   const mafiaMessages = useQuery(api.mafiaMessages.list, { gameId, sessionId })
+  const autoAdvanceToDay = useMutation(api.games.autoAdvanceToDay)
+  const calledAutoRef = useRef(false)
+
+  async function handleTimerExpire() {
+    if (calledAutoRef.current) return
+    calledAutoRef.current = true
+    try {
+      await autoAdvanceToDay({ gameId, sessionId })
+    } catch {
+      calledAutoRef.current = false
+    }
+  }
 
   const canSeeMafiaChat = myRole === 'mafia' || isGM
   const me = players.find(p => p.isMe)
@@ -355,6 +372,16 @@ export default function NightPhase({
         >
           Silence falls over the village...
         </p>
+        {phaseDeadline && !isGM && (timerVisibleToAll ?? true) && (
+          <div style={{ marginTop: 8 }}>
+            <Countdown
+              deadline={phaseDeadline}
+              onExpire={() => {
+                void handleTimerExpire()
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Previous round elimination */}
@@ -509,6 +536,47 @@ export default function NightPhase({
           </div>
         )}
 
+        {/* Mason partners */}
+        {myRole === 'mason' && (
+          <div
+            className="card animate-fade-in"
+            style={{ marginBottom: 16, borderColor: 'rgba(148,163,184,0.3)' }}
+          >
+            <p
+              className="font-heading"
+              style={{
+                margin: '0 0 10px',
+                fontSize: '0.85rem',
+                color: '#94a3b8',
+              }}
+            >
+              🧱 Your Mason Brother
+            </p>
+            {players.filter(p => p.role === 'mason' && !p.isMe).length > 0 ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {players
+                  .filter(p => p.role === 'mason' && !p.isMe)
+                  .map(p => (
+                    <span key={p._id} className="badge badge-mason">
+                      {p.name}
+                      {!p.isAlive && ' ☠️'}
+                    </span>
+                  ))}
+              </div>
+            ) : (
+              <p
+                style={{
+                  color: 'var(--text3)',
+                  fontSize: '0.85rem',
+                  margin: 0,
+                }}
+              >
+                Your partner has fallen.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* HOST PANEL */}
         {isHost && nightActionStatus && (
           <div
@@ -538,6 +606,20 @@ export default function NightPhase({
                 'Night Actions'
               )}
             </h2>
+
+            {phaseDeadline && (
+              <div style={{ marginBottom: 10 }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>
+                  Auto-advance in{' '}
+                </span>
+                <Countdown
+                  deadline={phaseDeadline}
+                  onExpire={() => {
+                    void handleTimerExpire()
+                  }}
+                />
+              </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {nightActionStatus.mafiaNeeded && (
@@ -1034,7 +1116,7 @@ export default function NightPhase({
                   >
                     {p.name}
                   </span>
-                  {isGM && p.role && (
+                  {p.role && (
                     <span
                       className={`badge badge-${p.role}`}
                       style={{ fontSize: '0.65rem', padding: '1px 6px' }}

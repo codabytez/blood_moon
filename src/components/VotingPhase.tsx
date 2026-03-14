@@ -3,6 +3,7 @@ import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { Id } from '../../convex/_generated/dataModel'
 import { errMsg } from '../lib/errMsg'
+import { playVoteCast } from '../lib/sounds'
 import PlayerAvatar from './PlayerAvatar'
 import { IconCrosshair, IconSkull, IconEye, IconWarning } from './Icons'
 
@@ -50,6 +51,7 @@ export default function VotingPhase({
   const myVote = voteData?.myVote
   const tally = voteData?.tally ?? []
   const totalVotes = voteData?.totalVotes ?? 0
+  const voterStatuses = voteData?.voterStatuses ?? []
   const isPacifist = me?.role === 'pacifist'
   const isSilenced = me?.silenced === true
   const canVote = !isPacifist && !isSilenced
@@ -59,6 +61,7 @@ export default function VotingPhase({
     setError('')
     try {
       await submitVote({ gameId, targetId, sessionId })
+      playVoteCast()
     } catch (err) {
       setError(errMsg(err))
     } finally {
@@ -211,6 +214,55 @@ export default function VotingPhase({
             </p>
           )}
         </div>
+
+        {/* Voter status (host only) */}
+        {isHost && voterStatuses.length > 0 && (
+          <div
+            className="card animate-fade-in"
+            style={{ marginBottom: 16, animationDelay: '0.08s' }}
+          >
+            <p
+              className="font-heading"
+              style={{
+                margin: '0 0 10px',
+                fontSize: '0.85rem',
+                color: 'var(--text2)',
+              }}
+            >
+              Voter Status
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {voterStatuses.map(vs => (
+                <div
+                  key={vs.playerId}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '3px 9px',
+                    borderRadius: 99,
+                    background: vs.hasVoted
+                      ? 'rgba(22,163,74,0.1)'
+                      : 'rgba(0,0,0,0.15)',
+                    border: `1px solid ${vs.hasVoted ? 'rgba(22,163,74,0.3)' : 'var(--border)'}`,
+                    fontSize: '0.8rem',
+                  }}
+                >
+                  <span style={{ color: vs.hasVoted ? '#4ade80' : '#6b7280' }}>
+                    {vs.hasVoted ? '✓' : '○'}
+                  </span>
+                  <span
+                    style={{
+                      color: vs.hasVoted ? 'var(--text)' : 'var(--text3)',
+                    }}
+                  >
+                    {vs.playerName}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Vote targets */}
         {me?.isAlive && !isGM && (

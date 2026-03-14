@@ -10,7 +10,8 @@ export default defineSchema({
       v.literal('day'),
       v.literal('voting'),
       v.literal('hunterRevenge'),
-      v.literal('ended')
+      v.literal('ended'),
+      v.literal('canceled')
     ),
     round: v.number(),
     winner: v.optional(v.union(v.literal('villagers'), v.literal('mafia'))),
@@ -23,6 +24,20 @@ export default defineSchema({
     ),
     // Diseased mechanic: skip mafia kill the following night
     skipNextNightKill: v.optional(v.boolean()),
+    settings: v.optional(
+      v.object({
+        nightSeconds: v.optional(v.number()),
+        daySeconds: v.optional(v.number()),
+        hunterSeconds: v.optional(v.number()),
+        revealRoleOnDeath: v.optional(v.boolean()),
+        customRoles: v.optional(v.array(v.string())),
+        skipRoleReveal: v.optional(v.boolean()),
+        deadCanChat: v.optional(v.boolean()),
+        mafiaSeesTeam: v.optional(v.boolean()),
+        timerVisibleToAll: v.optional(v.boolean()),
+      })
+    ),
+    phaseDeadline: v.optional(v.number()),
   }).index('by_code', ['code']),
 
   players: defineTable({
@@ -111,6 +126,8 @@ export default defineSchema({
     content: v.string(),
     round: v.number(),
     createdAt: v.number(),
+    replyToName: v.optional(v.string()),
+    replyToContent: v.optional(v.string()),
   }).index('by_game_round', ['gameId', 'round']),
 
   // Private mafia team chat — only visible to mafia players + spectating host

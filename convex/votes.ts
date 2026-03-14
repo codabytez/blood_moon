@@ -1,6 +1,7 @@
 import { mutation, query } from './_generated/server'
 import { v, ConvexError } from 'convex/values'
 import { Id } from './_generated/dataModel'
+import { doElimination } from './_shared'
 
 export const submit = mutation({
   args: {
@@ -43,6 +44,30 @@ export const submit = mutation({
         targetId,
       })
     }
+
+    // ── Auto-tally: if all eligible voters have now voted ──────────
+    const allPlayers = await ctx.db
+      .query('players')
+      .withIndex('by_game', q => q.eq('gameId', gameId))
+      .collect()
+
+    const eligibleVoters = allPlayers.filter(
+      p => p.isAlive && !p.isSpectating && p.role !== 'pacifist' && !p.silenced
+    )
+
+    const updatedVotes = await ctx.db
+      .query('votes')
+      .withIndex('by_game_round', q =>
+        q.eq('gameId', gameId).eq('round', game.round)
+      )
+      .collect()
+
+    if (
+      eligibleVoters.length > 0 &&
+      updatedVotes.length >= eligibleVoters.length
+    ) {
+      await doElimination(ctx.db, gameId)
+    }
   },
 })
 
@@ -57,7 +82,8 @@ export const list = query({
       .first()
 
     const game = await ctx.db.get(gameId)
-    if (!game) return { tally: [], myVote: null, totalVotes: 0 }
+    if (!game)
+      return { tally: [], myVote: null, totalVotes: 0, voterStatuses: [] }
 
     const votes = await ctx.db
       .query('votes')
@@ -66,13 +92,18 @@ export const list = query({
       )
       .collect()
 
+    const players = await ctx.db
+      .query('players')
+      .withIndex('by_game', q => q.eq('gameId', gameId))
+      .collect()
+
     // Build tally with target names
     const voteCounts: Record<string, { count: number; targetName: string }> = {}
     for (const vote of votes) {
       const key = vote.targetId as string
       if (!voteCounts[key]) {
-        const target = await ctx.db.get(vote.targetId as Id<'players'>)
-        voteCounts[key] = { count: 0, targetName: target?.name ?? 'Unknown' }
+        const tgt = await ctx.db.get(vote.targetId as Id<'players'>)
+        voteCounts[key] = { count: 0, targetName: tgt?.name ?? 'Unknown' }
       }
       voteCounts[key].count++
     }
@@ -89,10 +120,23 @@ export const list = query({
       ? (votes.find(v => v.voterId === myPlayer._id)?.targetId ?? null)
       : null
 
+    // Voter statuses: who has voted, who hasn't (eligible voters only)
+    const votedPlayerIds = new Set(votes.map(v => v.voterId as string))
+    const eligibleVoters = players.filter(
+      p => p.isAlive && !p.isSpectating && p.role !== 'pacifist' && !p.silenced
+    )
+    const voterStatuses = eligibleVoters.map(p => ({
+      playerId: p._id,
+      playerName: p.name,
+      hasVoted: votedPlayerIds.has(p._id as string),
+      isMe: p.sessionId === myPlayer?.sessionId,
+    }))
+
     return {
-      tally: myPlayer?.isHost ? tally : tally.map(t => ({ ...t })), // everyone sees tally
+      tally,
       myVote,
       totalVotes: votes.length,
+      voterStatuses,
     }
   },
 })

@@ -23,6 +23,7 @@ export const list = query({
     const isGM = (myPlayer?.isHost && myPlayer?.isSpectating) ?? false
     const isMafia = myPlayer?.role === 'mafia'
     const isMason = myPlayer?.role === 'mason'
+    const mafiaSeesTeam = game?.settings?.mafiaSeesTeam ?? true
 
     return players.map(p => ({
       _id: p._id,
@@ -30,16 +31,20 @@ export const list = query({
       isAlive: p.isAlive,
       isHost: p.isHost,
       isSpectating: p.isSpectating ?? false,
-      // Reveal role to: game ended, GM, self, fellow mafia, or fellow mason
+      // Reveal role to: game ended, GM, self, fellow mafia (if mafiaSeesTeam), or fellow mason
       role:
         gameEnded ||
         isGM ||
         p.sessionId === sessionId ||
-        (isMafia && p.role === 'mafia') ||
+        (mafiaSeesTeam && isMafia && p.role === 'mafia') ||
         (isMason && p.role === 'mason')
           ? p.role
           : undefined,
       seerResult: p.sessionId === sessionId ? p.seerResult : undefined,
+      piResult: p.sessionId === sessionId ? p.piResult : undefined,
+      ftResult: p.sessionId === sessionId ? p.ftResult : undefined,
+      beholderResult: p.sessionId === sessionId ? p.beholderResult : undefined,
+      silenced: p.silenced ?? false,
       isMe: p.sessionId === sessionId,
     }))
   },

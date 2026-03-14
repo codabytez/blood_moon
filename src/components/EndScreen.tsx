@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Id } from '../../convex/_generated/dataModel'
 import PlayerAvatar from './PlayerAvatar'
+import { playVillageWins, playMafiaWins } from '../lib/sounds'
 
 type Player = {
   _id: Id<'players'>
@@ -61,6 +62,11 @@ export default function EndScreen({
   onLeave,
 }: Props) {
   const [resetting, setResetting] = useState(false)
+
+  useEffect(() => {
+    if (winner === 'mafia') playMafiaWins()
+    else playVillageWins()
+  }, [winner])
 
   const isMafiaWin = winner === 'mafia'
 

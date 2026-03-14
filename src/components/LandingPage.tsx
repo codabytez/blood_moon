@@ -397,6 +397,76 @@ export default function LandingPage({
         <span style={{ opacity: 0.6 }}>›</span>
       </button>
 
+      {/* ── Footer credit ──────────────────────────────── */}
+      <div
+        className="animate-fade-in"
+        style={{
+          marginTop: 48,
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 6,
+          animationDelay: '0.6s',
+        }}
+      >
+        <p
+          style={{
+            color: 'var(--text3)',
+            fontSize: '0.72rem',
+            margin: 0,
+            letterSpacing: '0.1em',
+          }}
+        >
+          Built by{' '}
+          <a
+            href="https://obinnachidi.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: 'var(--accent)',
+              textDecoration: 'none',
+              borderBottom: '1px solid rgba(220,38,38,0.35)',
+              paddingBottom: 1,
+              transition: 'color 0.2s, border-color 0.2s',
+            }}
+            onMouseEnter={e => {
+              ;(e.currentTarget as HTMLAnchorElement).style.color =
+                'var(--moon)'
+              ;(e.currentTarget as HTMLAnchorElement).style.borderColor =
+                'var(--moon)'
+            }}
+            onMouseLeave={e => {
+              ;(e.currentTarget as HTMLAnchorElement).style.color =
+                'var(--accent)'
+              ;(e.currentTarget as HTMLAnchorElement).style.borderColor =
+                'rgba(220,38,38,0.35)'
+            }}
+          >
+            Lisan al Gaib
+          </a>
+        </p>
+        <a
+          href="mailto:chidiobinna0001@gmail.com?subject=Blood Moon — Feedback"
+          style={{
+            color: 'var(--text3)',
+            fontSize: '0.68rem',
+            letterSpacing: '0.08em',
+            textDecoration: 'none',
+            opacity: 0.7,
+            transition: 'opacity 0.2s',
+          }}
+          onMouseEnter={e =>
+            ((e.currentTarget as HTMLAnchorElement).style.opacity = '1')
+          }
+          onMouseLeave={e =>
+            ((e.currentTarget as HTMLAnchorElement).style.opacity = '0.7')
+          }
+        >
+          Bug? Suggestion? Say hi →
+        </a>
+      </div>
+
       {/* ── Modal ──────────────────────────────────────── */}
       {modal !== 'none' && (
         <div
